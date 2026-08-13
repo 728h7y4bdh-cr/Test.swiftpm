@@ -67,6 +67,16 @@ final class BluetoothManager: NSObject {
     private var receiveMyID = ""
     private var receiveTargetID = ""
 
+    private var isCentralOperationActive: Bool {
+        if case .none = centralOperation { return false }
+        return true
+    }
+
+    private var isPeripheralOperationActive: Bool {
+        if case .none = peripheralOperation { return false }
+        return true
+    }
+
     // MARK: - タイムアウト（30秒）
 
     private var handshakeTimer: Timer?
@@ -328,7 +338,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
         case .poweredOn:
             beginScanIfReady()
         case .poweredOff, .unauthorized, .unsupported:
-            if centralScanRequested || centralOperation.isActive {
+            if centralScanRequested || isCentralOperationActive {
                 failCentralOperation()
             }
         default:
@@ -468,7 +478,7 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
         case .poweredOn:
             beginAdvertisingIfReady()
         case .poweredOff, .unauthorized, .unsupported:
-            if peripheralAdvertiseRequested || peripheralOperation.isActive || isReceiving {
+            if peripheralAdvertiseRequested || isPeripheralOperationActive || isReceiving {
                 handleUnexpectedDisconnection()
             }
         default:
@@ -507,21 +517,5 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
         guard let pendingResponsePayload else { return }
         self.pendingResponsePayload = nil
         sendResponseOrQueue(pendingResponsePayload)
-    }
-}
-
-// MARK: - 便宜プロパティ
-
-private extension BluetoothManager.CentralOperation {
-    var isActive: Bool {
-        if case .none = self { return false }
-        return true
-    }
-}
-
-private extension BluetoothManager.PeripheralOperation {
-    var isActive: Bool {
-        if case .none = self { return false }
-        return true
     }
 }
