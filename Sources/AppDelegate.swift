@@ -15,14 +15,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     /// アプリ起動時に一度だけ呼ばれる。
     /// PS設計書 6.1「初期化処理」の内容をそのまま実行する：
-    ///   1. ステータスにアイドルをセット（StatusManager.resetToIdle）
+    ///   1. ステータスにアイドルをセット（PS設計書 3.2 No.1「アプリ起動時」に対応するイベントで遷移）
     ///   2. 自端末IDに"000"をセット、接続先IDに"001"をセット（AppParameters.resetToInitialValues）
     /// （要件定義書 10章「初期化処理」にも対応する内容）
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        StatusManager.shared.resetToIdle()
+        StatusManager.shared.apply(.appLaunched)
         AppParameters.shared.resetToInitialValues()
         return true
     }
