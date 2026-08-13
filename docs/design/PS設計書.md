@@ -16,32 +16,32 @@
 
 | No | 項目 | 設計判断 | 理由 |
 |---|---|---|---|
-| 1 | 通信ライブラリ | **Core Bluetooth**を採用する（Multipeer Connectivityは不採用） | Multipeer ConnectivityはWi-Fi(インフラ/P2P)を自動選択する可能性があり、「Wi-Fi常時OFF」要件をアプリ実装として担保できないため。Core BluetoothはBLEのみを使用し、Wi-Fiハードウェアに関与しない。 |
-| 2 | ID→ペイロード変換 | 自端末ID／接続先IDは入力範囲000〜999の3桁数値文字列だが、ペイロード上は6byteのため、**先頭に"000"を付与し6桁のASCII数字文字列**(例: `7` → `"007"` → `"000007"`)に変換して格納する | ペイロードのID領域が6byteと定義されているため、3桁の入力値をゼロ埋めして6byteに揃える方式を採用 |
+| 1 | 通信ライブラリ | 通信には**Core Bluetooth**を使用する | BLE(Bluetooth Low Energy)のみを使用し、Wi-Fiハードウェアには関与しない |
+| 2 | ID→ペイロード変換 | 自端末ID／接続先ID（3桁の数値文字列 `000`〜`999`）をASCII変換し、3byteのバイナリとして格納する | — |
 | 3 | Central/Peripheral役割 | 「接続開始」ボタン操作端末＝**Central**、「待受開始」ボタン操作端末＝**Peripheral** | Bluetooth通信開始処理（能動的に探索・接続・送信する側）とBluetooth待受開始処理（受動的に待ち受ける側）の役割がCore BluetoothのCentral/Peripheralモデルと自然に対応するため |
 | 4 | GATT通信方向 | Central→Peripheralへの送信はWrite特性、Peripheral→Centralへの送信はNotify特性を用いる（片方向2特性構成） | 要件上、双方向で送信が発生するのは「5.Bluetooth通信開始処理」「6.Bluetooth待受開始処理」のハンドシェイクのみであり、データ受信処理側からの応答送信は不要なため、2特性で全シナリオを表現できる |
-| 5 | 送信サイズ確認 | 書込み前に`peripheral.maximumWriteValueLength(for:)`を確認し、24byte以上であることを確認した上で`writeValue(_:for:type:)`を1回実行する（分割送信は行わない） | ペイロード24byteは固定長であり、MTU確認により1回の書込みで送信可能なため |
+| 5 | 送信サイズ確認 | 書込み前に`peripheral.maximumWriteValueLength(for:)`を確認し、18byte以上であることを確認した上で`writeValue(_:for:type:)`を1回実行する（分割送信は行わない） | ペイロード18byteは固定長であり、MTU確認により1回の書込みで送信可能なため |
 
 ## 1. アーキテクチャ概要
 
 ```mermaid
 flowchart TB
     subgraph View層
-        VC1[TopViewController]
-        VC2[ConnectionViewController]
-        VC3[SendViewController]
-        VC4[ReceiveViewController]
+        VC1["TopViewController"]
+        VC2["ConnectionViewController"]
+        VC3["SendViewController"]
+        VC4["ReceiveViewController"]
     end
     subgraph 制御層
-        BM[BluetoothManager\n(Core Bluetoothラッパー)]
-        SM[StatusManager\n(状態遷移管理)]
+        BM["BluetoothManager<br/>(Core Bluetoothラッパー)"]
+        SM["StatusManager<br/>(状態遷移管理)"]
     end
     subgraph データ層
-        PM[AppParameters\n(自端末ID/接続先ID)]
-        PC[PayloadCodec\n(ペイロード変換)]
+        PM["AppParameters<br/>(自端末ID/接続先ID)"]
+        PC["PayloadCodec<br/>(ペイロード変換)"]
     end
     subgraph OS
-        CB[Core Bluetooth\nCBCentralManager/CBPeripheralManager]
+        CB["Core Bluetooth<br/>CBCentralManager/CBPeripheralManager"]
     end
 
     VC1 --> SM
@@ -59,7 +59,7 @@ flowchart TB
 |---|---|
 | `AppParameters` | 内部パラメータ「自端末ID」「接続先ID」の保持・永続化 |
 | `StatusManager` | 通信状態（ステータス）の保持・遷移・現在状態の通知 |
-| `PayloadCodec` | 24byteペイロードのエンコード／デコード（ID⇔ASCII変換、パディング処理を含む） |
+| `PayloadCodec` | 18byteペイロードのエンコード／デコード（ID⇔ASCII変換、パディング処理を含む） |
 | `BluetoothManager` | Core Bluetoothの制御（Central/Peripheral役割切替、GATT定義、送受信、切断、タイムアウト管理） |
 | 各`ViewController` | 画面表示・ユーザー操作の受付・`BluetoothManager`/`StatusManager`の呼び出し |
 
@@ -106,35 +106,37 @@ flowchart TB
 ```mermaid
 stateDiagram-v2
     [*] --> idle : アプリ起動
-    idle --> connecting : 通信開始処理\n(送信開始)
-    connecting --> waitingToSend : 通信開始処理\n正常終了通知
-    connecting --> idle : 通信開始処理\n異常終了(切断処理経由)
+    idle --> connecting : 通信開始データ送信
+    idle --> listening : 30秒待受開始
 
-    idle --> listening : 待受開始処理\n(30秒待受開始)
-    listening --> waitingToReceive : 待受開始処理\n正常終了通知
-    listening --> idle : 待受開始処理\n異常終了(切断処理経由)
+    connecting --> waitingToSend : 通信開始 正常終了
+    connecting --> idle : 通信開始 異常終了
 
-    waitingToSend --> sending : 送信処理開始
+    listening --> waitingToReceive : 待受処理 正常終了
+    listening --> idle : 待受処理 異常終了
+
+    waitingToSend --> sending : 送信開始
     sending --> waitingToSend : 送信完了
+    waitingToSend --> idle : 切断完了
 
-    waitingToReceive --> receiveStopping : 受信終了要求検出\n(受信終了完了通知)
-    receiveStopping --> waitingToReceive : 「再開」ボタンタップ
-
-    receiveStopping --> idle : 切断処理完了
-    waitingToSend --> idle : 切断処理完了
+    waitingToReceive --> receiveStopping : 受信終了要求検出
+    receiveStopping --> waitingToReceive : 再開ボタンタップ
+    receiveStopping --> idle : 切断完了
 ```
+
+> 補足: `connecting → idle` および `listening → idle` の異常終了時の遷移は、いずれもBluetooth通信切断処理（6.4節）を経由する。
 
 ## 4. 通信フォーマット仕様
 
-### 4.1 ペイロード構成（全24byte固定長）
+### 4.1 ペイロード構成（全18byte固定長）
 
 | オフセット | 項目 | サイズ | 内容 |
 |---|---|---|---|
 | 0 | 送信種別 | 1byte | 要求時`0x29` / 応答時`0x92` |
 | 1 | 通信種別 | 1byte | 通信開始・待受`0x01` / データ送受信`0x02` |
-| 2〜7 | 送信元ID | 6byte | 送信元の端末IDをASCII変換した値 |
-| 8〜13 | 送信先ID | 6byte | 送信先の端末IDをASCII変換した値 |
-| 14〜23 | 入力データ | 10byte | バイナリデータ（詳細は用途毎に4.4参照） |
+| 2〜4 | 送信元ID | 3byte | 送信元の端末IDをASCII変換した値 |
+| 5〜7 | 送信先ID | 3byte | 送信先の端末IDをASCII変換した値 |
+| 8〜17 | 入力データ | 10byte | バイナリデータ（詳細は用途毎に4.4参照） |
 
 ### 4.2 送信種別コード
 
@@ -152,10 +154,7 @@ stateDiagram-v2
 
 ### 4.4 ID変換仕様
 
-自端末ID／接続先ID（画面入力値、3桁数値文字列 `"000"`〜`"999"`）を、以下の手順で6byteに変換する。
-
-1. 3桁の数値文字列の先頭に `"000"` を付与し、6桁の数値文字列とする（例: `"007"` → `"000007"`）。
-2. 6桁の数値文字列をASCII(0x30〜0x39)にエンコードし、6byteのバイナリとする。
+自端末ID／接続先ID（画面入力値、3桁数値文字列 `"000"`〜`"999"`）を、ASCII(0x30〜0x39)にエンコードし、3byteのバイナリとする。
 
 ### 4.5 入力データ領域（10byte）の用途別内容
 
@@ -180,18 +179,18 @@ stateDiagram-v2
 
 | 項目 | UUID（暫定値） | Properties | Permissions |
 |---|---|---|---|
-| Service | `09F12386-66E5-4DD8-83A5-218A4B3444E3` | - | - |
-| Request/Dataキャラクタリスティック（Central→Peripheral） | `572E3A49-D609-495D-AF73-272558160666` | Write | Writeable |
-| Responseキャラクタリスティック（Peripheral→Central） | `8B4954F8-47FF-4397-AF34-A8EEE6A68F4E` | Notify | - |
+| Service | `00000000-0000-0000-0000-000000000001` | - | - |
+| Request/Dataキャラクタリスティック（Central→Peripheral） | `00000000-0000-0000-0000-000000000002` | Write | Writeable |
+| Responseキャラクタリスティック（Peripheral→Central） | `00000000-0000-0000-0000-000000000003` | Notify | - |
 
-- **Request/Dataキャラクタリスティック**: Centralが「通信開始要求」（通信種別`0x01`）および「データ送信」（通信種別`0x02`）の24byteペイロードを書き込む。
-- **Responseキャラクタリスティック**: Peripheralが「通信開始応答」（送信種別`0x92`、通信種別`0x01`）の24byteペイロードをNotifyで通知する。データ受信処理（9章）では応答送信は行わない。
+- **Request/Dataキャラクタリスティック**: Centralが「通信開始要求」（通信種別`0x01`）および「データ送信」（通信種別`0x02`）の18byteペイロードを書き込む。
+- **Responseキャラクタリスティック**: Peripheralが「通信開始応答」（送信種別`0x92`、通信種別`0x01`）の18byteペイロードをNotifyで通知する。データ受信処理（9章）では応答送信は行わない。
 
 > UUIDは暫定値。実装時に本書のUUIDをソースコードの定数として使用し、変更する場合は本書を追随して更新すること。
 
 ### 5.3 送信時のサイズ確認方針
 
-書込み実行前に必ず `peripheral.maximumWriteValueLength(for: .withResponse)` を確認し、24byte以上であることを確認したうえで `writeValue(_:for:type: .withResponse)` を1回呼び出す。確認・書込みはサービス／キャラクタリスティック検出完了後（接続確立が安定した後）に行う。
+書込み実行前に必ず `peripheral.maximumWriteValueLength(for: .withResponse)` を確認し、18byte以上であることを確認したうえで `writeValue(_:for:type: .withResponse)` を1回呼び出す。確認・書込みはサービス／キャラクタリスティック検出完了後（接続確立が安定した後）に行う。
 
 ### 5.4 現在接続中端末の切断（各処理共通の前処理）
 
@@ -353,8 +352,8 @@ sequenceDiagram
 | `StatusManager` | class | 現在ステータスの保持・変更通知（Observer/Delegateまたは Combine/Closure） |
 | `PayloadType` | enum | 送信種別（`request = 0x29`, `response = 0x92`） |
 | `CommunicationType` | enum | 通信種別（`connection = 0x01`, `data = 0x02`） |
-| `Payload` | struct | 24byteペイロードのモデル（送信種別/通信種別/送信元ID/送信先ID/入力データ） |
-| `PayloadCodec` | class/enum(static) | `Payload` ⇔ `Data`(24byte) の相互変換、ID⇔ASCII変換 |
+| `Payload` | struct | 18byteペイロードのモデル（送信種別/通信種別/送信元ID/送信先ID/入力データ） |
+| `PayloadCodec` | class/enum(static) | `Payload` ⇔ `Data`(18byte) の相互変換、ID⇔ASCII変換 |
 | `BluetoothManager` | class | Core Bluetoothの制御全般（`CBCentralManagerDelegate`, `CBPeripheralManagerDelegate`, `CBPeripheralDelegate`実装） |
 
 ## 9. 用語集

@@ -81,16 +81,16 @@ flowchart LR
 └──────────────────────────────┘
 ```
 
-不許可時（固定表示）:
+「不許可」選択時（前面にダイアログを固定表示、背面の入力項目・ボタンは表示しない）:
 
 ```
 ┌──────────────────────────────┐
 │  Bluetooth接続                │
-├──────────────────────────────┤
-│                                │
-│   設定からBluetoothの使用を   │
-│   許可してください             │
-│                                │
+├──────────────────────────────┤   ┌───────────────────────┐
+│                                │   │ 設定からBluetoothの   │
+│                                │   │ 使用を許可してアプリを │
+│                                │   │ 再起動してください。   │
+│                                │   └───────────────────────┘
 └──────────────────────────────┘
 ```
 
@@ -104,7 +104,7 @@ flowchart LR
 | `txtTargetId` | `UITextField`（数値専用キーボード, `keyboardType = .numberPad`, 最大3桁の入力制限） | 内部パラメータ「接続先ID」表示 | 中段右 |
 | `btnConnect` | `UIButton`（`.filled`スタイル） | "接続開始" | 下段左（`UIStackView`で`btnListen`と横並び） |
 | `btnListen` | `UIButton`（`.filled`スタイル） | "待受開始" | 下段右（`UIStackView`で`btnConnect`と横並び） |
-| `lblPermissionDenied` | `UILabel`（不許可時のみ表示、他部品は非表示） | "設定からBluetoothの使用を許可してください" | 画面中央 |
+| （ダイアログ）`alertPermissionDenied` | `UIAlertController`（ボタンなし、固定表示） | "設定からBluetoothの使用を許可してアプリを再起動してください。" | 画面前面モーダル |
 
 ## 6. データ送信画面
 
@@ -124,6 +124,16 @@ flowchart LR
 └──────────────────────────────┘
 ```
 
+処理中（前面にダイアログを固定表示）:
+
+```
+┌──────────────────────────────┐
+│ [戻る]  データ送信            │   ┌───────────────┐
+├──────────────────────────────┤   │  データ送信中  │
+│  ...（背面は上図と同様）      │   └───────────────┘
+└──────────────────────────────┘
+```
+
 ### 6.2 部品一覧
 
 | 部品ID | 種別 | 内容 | 配置 |
@@ -133,7 +143,8 @@ flowchart LR
 | `lblTargetIdValue` | `UILabel` | 内部パラメータ「接続先ID」の値（表示のみ） | 上段右 |
 | `lblSendDataTitle` | `UILabel` | "送信データ" | 中段左 |
 | `pickerSendData` | `UIPickerView`（`UITextField.inputView`として使用、または画面内固定表示） | 選択肢: "YAMA" / "KAWA" | 中段右 |
-| `btnSend` | `UIButton`（`.filled`スタイル） | "送信"（処理中は"データ送信中"に文言変化、または`UIActivityIndicatorView`を併設） | 下段中央 |
+| `btnSend` | `UIButton`（`.filled`スタイル） | "送信" | 下段中央 |
+| （ダイアログ）`alertSending` | `UIAlertController`（ボタンなし） | "データ送信中" | 画面前面モーダル（送信処理中のみ表示） |
 
 ## 7. データ受信画面
 
@@ -180,8 +191,10 @@ flowchart LR
 | `lblDestIdValue` | `UILabel` | 受信データの送信先ID | 中段右 | 空欄 |
 | `lblDataTitle` | `UILabel`（小項目ラベル） | "データ" | 中段左 | 表示 |
 | `lblDataValue` | `UILabel` | 受信データの入力データ | 中段右 | 空欄 |
-| `btnResume` | `UIButton`（`.filled`スタイル） | "受信再開" | 下段中央 | 非表示（受信検出後に表示） |
-| （ダイアログ）`alertReceiving` | `UIAlertController` | "受信中"（OKボタンなし） | 画面前面モーダル | 画面遷移直後に表示 |
+| `btnResume` | `UIButton`（`.filled`スタイル） | "受信再開" | 下段中央 | 非表示（受信検出後に表示。ダイアログ表示中は操作不可） |
+| （ダイアログ）`alertReceiving` | `UIAlertController`（ボタンなし） | "受信中" | 画面前面モーダル | 画面遷移直後に表示 |
+| （ダイアログ）`alertReceiveComplete` | `UIAlertController`（OKボタンあり） | "データ受信完了" | 画面前面モーダル | 受信検出あり時に表示。表示時点で背面は受信データ表示・「受信再開」ボタン表示済み。表示中は背面の「受信再開」「戻る」ボタン操作不可 |
+| （ダイアログ）`alertInvalidData` | `UIAlertController`（OKボタンあり） | "データを受信しましたが、不正データでした。" | 画面前面モーダル | 受信検出なし時に表示。表示中は背面の「戻る」ボタン操作不可。OK未操作のまま5秒経過で「受信中」表示に戻る |
 
 ## 8. 共通UI部品仕様
 
