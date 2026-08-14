@@ -177,8 +177,8 @@ final class ConnectionViewController: UIViewController {
             self.isProcessing = false
             processingAlert.dismiss(animated: true) {
                 if success {
-                    // SS設計書 4.3.2／4.3.3「正常終了の場合、ダイアログを閉じ、対応する画面へ遷移する」
-                    onSuccess()
+                    // SS設計書 4.3.2／4.3.3「正常終了の場合、『接続成功』を1秒間表示した後、対応する画面へ遷移する」
+                    self.presentConnectionSucceededAlert(then: onSuccess)
                 } else {
                     // SS設計書 4.3.2／4.3.3「異常終了の場合、『該当する端末がありませんでした』を表示し、画面遷移は行わない」
                     self.presentAlert(message: "該当する端末がありませんでした")
@@ -202,6 +202,17 @@ final class ConnectionViewController: UIViewController {
         let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+
+    /// SS設計書 4.3.2／4.3.3「正常終了：『接続成功』をボタンなしで1秒間表示した後、
+    /// 自動的にダイアログを閉じて画面遷移する」。
+    private func presentConnectionSucceededAlert(then completion: @escaping () -> Void) {
+        let alert = UIAlertController(title: nil, message: "接続成功", preferredStyle: .alert)
+        present(alert, animated: true) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                alert.dismiss(animated: true, completion: completion)
+            }
+        }
     }
 }
 

@@ -42,9 +42,34 @@ final class BluetoothManager {
     /// 実際に受信を開始するのは公開APIの`startReceiving()`が呼ばれた時点。
     private var dataReceiver: DataReceiver?
 
+    #if DEBUG
+    /// true にすると、実際のCore Bluetooth通信を一切行わず、通信開始処理／待受開始処理／
+    /// データ送信処理を、擬似的な待ち時間の後に成功したものとして扱う
+    /// （通信相手の実機が用意できないSwift Playgroundsのプレビュー確認専用）。
+    /// データ受信処理（DataReceiver）は生成しないため、待受開始処理をバイパスした場合、
+    /// データ受信画面は「受信中」ダイアログが表示されたまま、画面遷移の確認のみができる。
+    ///
+    /// Release/配布ビルドではこの`#if DEBUG`ブロックごとコンパイル対象から除外されるため、
+    /// 誤って有効なまま配布される心配はない。
+    /// ⚠️ 実機2台での通信確認を行う際は、必ずfalseに戻してから実行すること。
+    static var isPreviewBypassEnabled = false
+    #endif
+
     // MARK: - Public: Bluetooth通信開始処理（PS設計書 6.2, Central役）
 
     func startConnecting(myID: String, targetID: String, completion: @escaping (Bool) -> Void) {
+        #if DEBUG
+        if Self.isPreviewBypassEnabled {
+            runPreviewBypass(
+                role: .central,
+                startEvent: .connectionStartRequestSent,
+                successEvent: .connectionStartSucceeded,
+                completion: completion
+            )
+            return
+        }
+        #endif
+
         // PS設計書 5.4／6.2：「現在、接続中の端末がある場合は切断後」に処理を開始する
         disconnect {
             self.role = .central
@@ -66,6 +91,20 @@ final class BluetoothManager {
     // MARK: - Public: Bluetooth待受開始処理（PS設計書 6.3, Peripheral役）
 
     func startListening(myID: String, targetID: String, completion: @escaping (Bool) -> Void) {
+        #if DEBUG
+        if Self.isPreviewBypassEnabled {
+            // dataReceiverを生成しないため、以降startReceiving()/stopReceiving()は何もしない
+            // （データ受信処理は行わない。データ受信画面は「受信中」表示のまま＝画面遷移確認のみ）
+            runPreviewBypass(
+                role: .peripheral,
+                startEvent: .listenStarted,
+                successEvent: .listenSucceeded,
+                completion: completion
+            )
+            return
+        }
+        #endif
+
         // PS設計書 6.3：「現在、接続中の端末がある場合は切断後」に30秒間の待受を開始する
         disconnect {
             self.role = .peripheral
@@ -106,6 +145,17 @@ final class BluetoothManager {
     // MARK: - Public: データ送信処理（PS設計書 6.5, Central役）
 
     func sendData(myID: String, targetID: String, text: String, completion: @escaping (Bool) -> Void) {
+        #if DEBUG
+        if Self.isPreviewBypassEnabled {
+            StatusManager.shared.apply(.dataSendStarted)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                StatusManager.shared.apply(.dataSendCompleted)
+                completion(true)
+            }
+            return
+        }
+        #endif
+
         guard let session = centralSession else {
             completion(false)
             return
@@ -136,6 +186,29 @@ final class BluetoothManager {
         }
         dataReceiver.stop(completion: completion)
     }
+
+    #if DEBUG
+    // MARK: - Private（プレビュー確認用バイパス）
+
+    /// 通信開始処理／待受開始処理を、実際のCore Bluetooth通信なしで擬似的に成功させる。
+    /// 「処理中」ダイアログが一瞬で消えて操作感が確認できなくなることを避けるため、
+    /// 2秒の擬似的な待ち時間を挟んでから、対応する状態遷移イベントを適用してcompletionを呼ぶ。
+    private func runPreviewBypass(
+        role: Role,
+        startEvent: AppStatusTransitionEvent,
+        successEvent: AppStatusTransitionEvent,
+        completion: @escaping (Bool) -> Void
+    ) {
+        disconnect {
+            self.role = role
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                StatusManager.shared.apply(startEvent)
+                StatusManager.shared.apply(successEvent)
+                completion(true)
+            }
+        }
+    }
+    #endif
 
     // MARK: - Private
 
