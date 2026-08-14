@@ -32,36 +32,53 @@ flowchart TB
         VC3["SendViewController"]
         VC4["ReceiveViewController"]
     end
-    subgraph 制御層
-        BM["BluetoothManager<br/>(Core Bluetoothラッパー)"]
-        SM["StatusManager<br/>(状態遷移管理)"]
-    end
-    subgraph データ層
-        PM["AppParameters<br/>(自端末ID/接続先ID)"]
-        PC["PayloadCodec<br/>(ペイロード変換)"]
-    end
-    subgraph OS
-        CB["Core Bluetooth<br/>CBCentralManager/CBPeripheralManager"]
+
+    BM["BluetoothManager<br/>（調停役／Coordinator）"]
+
+    subgraph funcs["機能レイヤー（PS6.2/6.3/6.5/6.6を1処理1クラスで実装）"]
+        H1["ConnectionStartHandshake<br/>（6.2 通信開始処理）"]
+        H2["ListenStartHandshake<br/>（6.3 待受開始処理）"]
+        H3["DataSender<br/>（6.5 データ送信処理）"]
+        H4["DataReceiver<br/>（6.6 データ受信処理）"]
     end
 
-    VC1 --> SM
+    subgraph roles["役割レイヤー（CoreBluetoothの接続・送受信のみを担う）"]
+        CS["BluetoothCentralSession"]
+        PSS["BluetoothPeripheralSession"]
+    end
+
+    SM["StatusManager<br/>（状態遷移の一元管理）"]
+    PM["AppParameters<br/>（自端末ID/接続先ID）"]
+    PC["PayloadCodec<br/>（ペイロード変換）"]
+    CB["Core Bluetooth<br/>CBCentralManager/CBPeripheralManager"]
+
     VC2 --> BM
+    VC2 --> PM
     VC3 --> BM
+    VC3 --> PM
     VC4 --> BM
-    BM --> SM
-    BM --> PC
-    BM --> PM
-    PC --> PM
-    BM --> CB
+
+    BM --> funcs
+    BM -.利用.-> SM
+    funcs --> roles
+    funcs -.利用.-> SM
+    funcs -.利用.-> PC
+    roles --> CB
 ```
 
 | コンポーネント | 責務 |
 |---|---|
 | `AppParameters` | 内部パラメータ「自端末ID」「接続先ID」の保持・永続化 |
-| `StatusManager` | 通信状態（ステータス）の保持・遷移・現在状態の通知 |
+| `StatusManager` | 状態遷移の一元管理（3.2の遷移テーブルを保持し、`AppStatusTransitionEvent`経由でのみ遷移させる） |
 | `PayloadCodec` | 18byteペイロードのエンコード／デコード（ID⇔ASCII変換、パディング処理を含む） |
-| `BluetoothManager` | Core Bluetoothの制御（Central/Peripheral役割切替、GATT定義、送受信、切断、タイムアウト管理） |
-| 各`ViewController` | 画面表示・ユーザー操作の受付・`BluetoothManager`/`StatusManager`の呼び出し |
+| `BluetoothCentralSession` | Central役の役割レイヤー。CoreBluetoothの接続確立・GATT探索・Write/Notify送受信のみを担い、プロトコルの意味は持たない |
+| `BluetoothPeripheralSession` | Peripheral役の役割レイヤー。アドバタイズ・GATTサーバー提供・Write受信/Notify送信のみを担い、プロトコルの意味は持たない |
+| `ConnectionStartHandshake` | 通信開始処理（6.2）専用。`BluetoothCentralSession`を介して要求送信・応答待受を行う |
+| `ListenStartHandshake` | 待受開始処理（6.3）専用。`BluetoothPeripheralSession`を介して要求待受・応答送信を行う |
+| `DataSender` | データ送信処理（6.5）専用。`BluetoothCentralSession`を介してデータを送信する |
+| `DataReceiver` | データ受信処理（6.6）専用。`BluetoothPeripheralSession`のWrite受信窓口を介してデータチェックを行う |
+| `BluetoothManager` | 上記の役割/機能クラスを、現在の役割（Central/Peripheral）に応じて生成・接続・破棄するだけの調停役（Coordinator）。プロトコルの中身は持たない |
+| 各`ViewController` | 画面表示・ユーザー操作の受付・`BluetoothManager`/`AppParameters`の呼び出し |
 
 ## 2. 内部パラメータ
 
@@ -347,14 +364,23 @@ sequenceDiagram
 
 | クラス/型 | 種別 | 概要 |
 |---|---|---|
-| `AppParameters` | struct/class | 自端末ID・接続先IDの保持 |
+| `AppParameters` | class | 自端末ID・接続先IDの保持 |
 | `AppStatus` | enum | 3.1の状態一覧 |
-| `StatusManager` | class | 現在ステータスの保持・変更通知（Observer/Delegateまたは Combine/Closure） |
+| `AppStatusTransitionEvent` | enum | 3.2の状態遷移契機一覧に1:1で対応する遷移イベント |
+| `StatusManager` | class | `AppStatusTransitionEvent`→`AppStatus`の遷移テーブルを保持し、状態遷移を一元管理する |
 | `PayloadType` | enum | 送信種別（`request = 0x29`, `response = 0x92`） |
 | `CommunicationType` | enum | 通信種別（`connection = 0x01`, `data = 0x02`） |
 | `Payload` | struct | 18byteペイロードのモデル（送信種別/通信種別/送信元ID/送信先ID/入力データ） |
-| `PayloadCodec` | class/enum(static) | `Payload` ⇔ `Data`(18byte) の相互変換、ID⇔ASCII変換 |
-| `BluetoothManager` | class | Core Bluetoothの制御全般（`CBCentralManagerDelegate`, `CBPeripheralManagerDelegate`, `CBPeripheralDelegate`実装） |
+| `PayloadCodec` | enum(static) | `Payload` ⇔ `Data`(18byte) の相互変換、ID⇔ASCII変換 |
+| `BluetoothGATT` | enum | Service／Characteristicのuuid定義（5.2） |
+| `BluetoothAuthorizationChecker` | class | Bluetooth使用許可確認（SS設計書4.1） |
+| `BluetoothCentralSession` | class | Central役の役割レイヤー。CoreBluetoothの接続確立・GATT探索・Write/Notify送受信のみを担う（`CBCentralManagerDelegate`, `CBPeripheralDelegate`実装） |
+| `BluetoothPeripheralSession` | class | Peripheral役の役割レイヤー。アドバタイズ・GATTサーバー提供・Write受信/Notify送信のみを担う（`CBPeripheralManagerDelegate`実装） |
+| `ConnectionStartHandshake` | class | 通信開始処理（6.2）専用の機能レイヤークラス |
+| `ListenStartHandshake` | class | 待受開始処理（6.3）専用の機能レイヤークラス |
+| `DataSender` | class | データ送信処理（6.5）専用の機能レイヤークラス |
+| `DataReceiver` | class | データ受信処理（6.6）専用の機能レイヤークラス |
+| `BluetoothManager` | class | 役割/機能レイヤーの各クラスを、現在の役割（Central/Peripheral）に応じて生成・接続・破棄するだけの調停役（Coordinator）。プロトコルの中身は持たず、通信開始処理／待受開始処理／通信切断処理／データ送信処理／データ受信処理の公開APIを提供する |
 
 ## 9. 用語集
 
