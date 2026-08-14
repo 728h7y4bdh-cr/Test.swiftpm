@@ -28,8 +28,11 @@ let package = Package(
                 .pad,
                 .phone
             ],
+            // iPadのマルチタスク（Slide Over／Split View）対応のため4方向すべてをサポートする
+            // （UI設計書 1章「画面回転・マルチタスク」に対応）
             supportedInterfaceOrientations: [
                 .portrait,
+                .portraitUpsideDown,
                 .landscapeLeft,
                 .landscapeRight
             ],

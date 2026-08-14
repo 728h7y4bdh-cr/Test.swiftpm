@@ -16,6 +16,7 @@
 |---|---|
 | 使用部品 | UIKit標準部品のみを使用し、サードパーティのUIライブラリには依存しない |
 | レイアウト | Auto Layout（`NSLayoutConstraint` / `UIStackView`）を用い、iPad・iPhoneの画面サイズ差、および画面回転に対応する |
+| 画面回転・マルチタスク | iPadのマルチタスク機能（Slide Over／Split View）に対応するため、縦向き・逆さ縦向き・横向き（左右）の4方向すべての画面回転をサポートする（マルチタスクを禁止するフルスクリーン専有モードは採用しない） |
 | 配色・フォント | OS標準のシステムカラー（`UIColor.systemBackground`等）・システムフォント（`UIFont.preferredFont(forTextStyle:)`）を使用し、ライトモード／ダークモード双方に対応する |
 | ダイアログ | すべて`UIAlertController`（`.alert`スタイル）を使用する |
 | ナビゲーション | `UINavigationController`によるpush/pop遷移を基本とする（TOP画面→Bluetooth接続画面は自動遷移のため`setViewControllers`等で置き換える） |
