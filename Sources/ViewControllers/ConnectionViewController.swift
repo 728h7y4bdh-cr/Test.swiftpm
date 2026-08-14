@@ -25,6 +25,14 @@ final class ConnectionViewController: UIViewController {
         setUpInputUI()
         // 許可確認が完了するまでは入力項目・ボタンを隠しておく（SS設計書 4.1 No.2「許可」時に表示する）
         inputContainer.isHidden = true
+
+        #if DEBUG
+        // デバッグ機能：TOP画面からBluetooth接続画面へ遷移した最初のタイミングで、
+        // プレビュー確認用バイパスの状態確認・監視を開始する（PS設計書 付録A.1）。
+        // ConnectionViewControllerはアプリ起動中に1度しか生成されないため、viewDidLoadは
+        // このタイミング（TOP→Bluetooth接続画面の初回遷移時）で正確に1回だけ呼ばれる。
+        PreviewBypassLogger.startMonitoringIfNeeded()
+        #endif
     }
 
     /// 画面表示のたびに、内部パラメータの値を入力欄へ反映し、Bluetooth使用許可を確認する。
