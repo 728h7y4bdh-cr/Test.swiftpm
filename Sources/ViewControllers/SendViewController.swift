@@ -13,6 +13,8 @@ final class SendViewController: UIViewController {
     private var selectedText = "YAMA"
     /// データ送信処理中かどうか。「戻る」ボタン制御（SS設計書 5.3）で参照する
     private var isSending = false
+    /// 予期しない切断の処理が二重に走らないようにするフラグ（SS設計書 5.6）
+    private var isHandlingDisconnect = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -24,6 +26,8 @@ final class SendViewController: UIViewController {
             title: "戻る", style: .plain, target: self, action: #selector(didTapBack)
         )
         setUpUI()
+        // Bluetooth接続の予期しない切断通知を受け取る（SS設計書 5.6「予期しない切断時の仕様」）
+        BluetoothManager.shared.connectionDelegate = self
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -123,6 +127,37 @@ final class SendViewController: UIViewController {
         let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+}
+
+// MARK: - BluetoothManagerConnectionDelegate（SS設計書 5.6「予期しない切断時の仕様」）
+
+extension SendViewController: BluetoothManagerConnectionDelegate {
+    func bluetoothManagerDidDisconnectUnexpectedly(_ manager: BluetoothManager) {
+        guard !isHandlingDisconnect else { return }
+        isHandlingDisconnect = true
+        // Step 1: 送信処理が進行中であれば中断する（「データ送信中」表示を残さない）
+        isSending = false
+
+        let showAlert: () -> Void = { [weak self] in
+            guard let self else { return }
+            // Step 2: 切断ダイアログを表示する
+            let alert = UIAlertController(
+                title: nil, message: "Bluetooth通信が切断されました。再接続してください", preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+                // Step 3: OKタップ後、Bluetooth接続画面へ遷移する
+                // （Bluetooth通信切断処理はBluetoothManager側で完了済みのため、ここでは遷移のみでよい）
+                self?.navigationController?.popViewController(animated: true)
+            })
+            self.present(alert, animated: true)
+        }
+
+        if let presented = presentedViewController {
+            presented.dismiss(animated: true, completion: showAlert)
+        } else {
+            showAlert()
+        }
     }
 }
 

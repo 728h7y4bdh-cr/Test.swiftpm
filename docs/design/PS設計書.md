@@ -395,12 +395,14 @@ sequenceDiagram
 
 本章は、正式仕様（要件定義書・SS設計書・UI設計書）には含まれない、開発時のみ使用するデバッグ機能を一覧化する付録である。すべて`#if DEBUG`で囲われており、Release／配布（TestFlight含む）ビルドにはコード自体が含まれず、正式仕様の画面・ダイアログ・状態遷移には一切影響しない。今後デバッグ機能を追加する場合も、本章に追記していく。
 
+デバッグ機能の有効／無効フラグは`DebugSettings`（`Sources/Debug/DebugSettings.swift`）に集約する。個々のManager／ViewControllerに分散させないことで、現在有効になっているデバッグ機能を1箇所で把握・調整できるようにしている。
+
 ### A.1 プレビュー確認用バイパス
 
 | 項目 | 内容 |
 |---|---|
 | 目的 | 通信相手の実機が用意できないSwift Playgroundsのプレビュー環境で、Bluetooth接続画面より先の画面（データ送信画面／データ受信画面）の表示・操作感を確認できるようにする |
-| 有効化方法 | `BluetoothManager.isPreviewBypassEnabled`（`#if DEBUG`内の`static var`、既定値`false`）をソースコード上で`true`に書き換えてビルドする。手動での切り替えを前提とし、アプリ内に切り替えUIは設けない |
-| 有効時の挙動 | `startConnecting`／`startListening`／`sendData`が実際のCore Bluetooth通信を行わず、2秒の擬似的な待ち時間の後に成功したものとして扱う。`startListening`側はデータ受信処理（`DataReceiver`）を生成しないため、データ受信画面は「受信中」ダイアログが表示されたまま実際の受信処理は行われない（画面遷移の確認のみ） |
+| 有効化方法 | `DebugSettings.isPreviewBypassEnabled`（`#if DEBUG`内の`static var`、既定値`false`）をソースコード上で`true`に書き換えてビルドする。手動での切り替えを前提とし、アプリ内に切り替えUIは設けない |
+| 有効時の挙動 | `BluetoothManager`の`startConnecting`／`startListening`／`sendData`が実際のCore Bluetooth通信を行わず、2秒の擬似的な待ち時間の後に成功したものとして扱う。`startListening`側はデータ受信処理（`DataReceiver`）を生成しないため、データ受信画面は「受信中」ダイアログが表示されたまま実際の受信処理は行われない（画面遷移の確認のみ） |
 | 状態確認ログ | `PreviewBypassLogger`が、Bluetooth接続画面への遷移直後（TOP画面からの初回遷移時）に状態を1度確認してログ出力し、以降は画面によらず定期的に状態を監視して、変化があればその都度コンソールへログ出力する。無効時「プレビューバイパス無効：実際のBluetooth通信を行います」、有効時「プレビューバイパス有効：実際のBluetooth通信を行いません」 |
-| 実装箇所 | `Sources/Managers/BluetoothManager.swift`（バイパス本体）、`Sources/Managers/PreviewBypassLogger.swift`（状態監視・ログ出力） |
+| 実装箇所 | `Sources/Debug/DebugSettings.swift`（フラグの一元管理）、`Sources/Managers/BluetoothManager.swift`（バイパス本体）、`Sources/Debug/PreviewBypassLogger.swift`（状態監視・ログ出力） |

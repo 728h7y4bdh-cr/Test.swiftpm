@@ -6,7 +6,13 @@ protocol BluetoothManagerReceiveDelegate: AnyObject {
     func bluetoothManager(_ manager: BluetoothManager, didDetect payload: Payload)
     /// チェックNGだった（受信検出なし）
     func bluetoothManagerDidFailToDetect(_ manager: BluetoothManager)
-    /// 受信中に相手端末との接続が予期せず切断された（PS設計書 7章）
+}
+
+/// Bluetooth接続が予期せず切断されたことをUI層へ伝えるためのデリゲート（PS設計書 7章）。
+/// Central役（データ送信画面）・Peripheral役（データ受信画面）のどちらでも起こりうるため、
+/// 受信処理専用の`BluetoothManagerReceiveDelegate`とは分離し、両画面が共通で実装する
+/// （SS設計書 5.6／6.6「予期しない切断時の仕様」）。
+protocol BluetoothManagerConnectionDelegate: AnyObject {
     func bluetoothManagerDidDisconnectUnexpectedly(_ manager: BluetoothManager)
 }
 
@@ -26,6 +32,8 @@ final class BluetoothManager {
     static let shared = BluetoothManager()
 
     weak var receiveDelegate: BluetoothManagerReceiveDelegate?
+    /// SS設計書 5.6／6.6「予期しない切断時の仕様」の通知先。データ送信画面・データ受信画面の両方が設定する。
+    weak var connectionDelegate: BluetoothManagerConnectionDelegate?
 
     private init() {}
 
@@ -42,28 +50,12 @@ final class BluetoothManager {
     /// 実際に受信を開始するのは公開APIの`startReceiving()`が呼ばれた時点。
     private var dataReceiver: DataReceiver?
 
-    #if DEBUG
-    /// デバッグ機能：プレビュー確認用バイパス（PS設計書 付録A.1）。
-    /// true にすると、実際のCore Bluetooth通信を一切行わず、通信開始処理／待受開始処理／
-    /// データ送信処理を、擬似的な待ち時間の後に成功したものとして扱う
-    /// （通信相手の実機が用意できないSwift Playgroundsのプレビュー確認専用）。
-    /// データ受信処理（DataReceiver）は生成しないため、待受開始処理をバイパスした場合、
-    /// データ受信画面は「受信中」ダイアログが表示されたまま、画面遷移の確認のみができる。
-    ///
-    /// この状態は`PreviewBypassLogger`がBluetooth接続画面遷移時から監視し、
-    /// 有効／無効および変化のたびにコンソールへ警告ログを出力する（正式仕様の画面には出さない）。
-    ///
-    /// Release/配布ビルドではこの`#if DEBUG`ブロックごとコンパイル対象から除外されるため、
-    /// 誤って有効なまま配布される心配はない。
-    /// ⚠️ 実機2台での通信確認を行う際は、必ずfalseに戻してから実行すること。
-    static var isPreviewBypassEnabled = false
-    #endif
-
     // MARK: - Public: Bluetooth通信開始処理（PS設計書 6.2, Central役）
 
     func startConnecting(myID: String, targetID: String, completion: @escaping (Bool) -> Void) {
         #if DEBUG
-        if Self.isPreviewBypassEnabled {
+        // デバッグ機能：プレビュー確認用バイパス（有効/無効は`DebugSettings`に一元管理されている。PS設計書 付録A.1）
+        if DebugSettings.isPreviewBypassEnabled {
             runPreviewBypass(
                 role: .central,
                 startEvent: .connectionStartRequestSent,
@@ -83,6 +75,9 @@ final class BluetoothManager {
             ConnectionStartHandshake(session: session).start(myID: myID, targetID: targetID) { [weak self] success in
                 guard let self else { return }
                 if success {
+                    // 通信開始処理の成功直後から、データ送信画面滞在中の予期しない切断を検知できるようにする
+                    // （SS設計書 5.6「予期しない切断時の仕様」）
+                    self.wireCentralFailureCallback()
                     completion(true)
                 } else {
                     // PS設計書 6.2「30秒以内に検出しなかった場合はBluetooth通信を切断して、異常終了を通知する」
@@ -96,7 +91,8 @@ final class BluetoothManager {
 
     func startListening(myID: String, targetID: String, completion: @escaping (Bool) -> Void) {
         #if DEBUG
-        if Self.isPreviewBypassEnabled {
+        // デバッグ機能：プレビュー確認用バイパス（PS設計書 付録A.1）
+        if DebugSettings.isPreviewBypassEnabled {
             // dataReceiverを生成しないため、以降startReceiving()/stopReceiving()は何もしない
             // （データ受信処理は行わない。データ受信画面は「受信中」表示のまま＝画面遷移確認のみ）
             runPreviewBypass(
@@ -150,7 +146,8 @@ final class BluetoothManager {
 
     func sendData(myID: String, targetID: String, text: String, completion: @escaping (Bool) -> Void) {
         #if DEBUG
-        if Self.isPreviewBypassEnabled {
+        // デバッグ機能：プレビュー確認用バイパス（PS設計書 付録A.1）
+        if DebugSettings.isPreviewBypassEnabled {
             StatusManager.shared.apply(.dataSendStarted)
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                 StatusManager.shared.apply(.dataSendCompleted)
@@ -216,9 +213,21 @@ final class BluetoothManager {
 
     // MARK: - Private
 
+    /// 通信開始処理の成功直後、Centralセッションの予期しない切断を検知できるようにする。
+    /// データ送信処理（DataSender）の知識は持たず、単に切断を検知したらcompletionへ通知するだけ
+    /// （SS設計書 5.6「予期しない切断時の仕様」）。
+    private func wireCentralFailureCallback() {
+        centralSession?.onFailure = { [weak self] in
+            guard let self else { return }
+            self.disconnect {
+                self.connectionDelegate?.bluetoothManagerDidDisconnectUnexpectedly(self)
+            }
+        }
+    }
+
     /// 待受開始処理の成功直後、Peripheralセッションの受信窓口をハンドシェイク側から
-    /// データ受信処理（DataReceiver）側へ配線する。あわせて、受信中の予期しない切断
-    /// （PS設計書 7章）をここで検知できるようにする。
+    /// データ受信処理（DataReceiver）側へ配線する。あわせて、待受成功後にデータ受信画面へ
+    /// 遷移している間ずっと、予期しない切断を検知できるようにする（SS設計書 6.6）。
     private func wireDataReceiverCallbacks() {
         dataReceiver?.onDetect = { [weak self] payload in
             guard let self else { return }
@@ -230,12 +239,8 @@ final class BluetoothManager {
         }
         peripheralSession?.onFailure = { [weak self] in
             guard let self else { return }
-            // PS設計書 7章：データ受信処理が実行中（isReceiving）の場合のみ、想定外切断として画面へ通知する
-            let wasReceiving = self.dataReceiver?.isReceiving == true
             self.disconnect {
-                if wasReceiving {
-                    self.receiveDelegate?.bluetoothManagerDidDisconnectUnexpectedly(self)
-                }
+                self.connectionDelegate?.bluetoothManagerDidDisconnectUnexpectedly(self)
             }
         }
     }

@@ -1,7 +1,7 @@
 #if DEBUG
 import Foundation
 
-/// デバッグ機能：プレビュー確認用バイパス（`BluetoothManager.isPreviewBypassEnabled`）の
+/// デバッグ機能：プレビュー確認用バイパス（`DebugSettings.isPreviewBypassEnabled`）の
 /// 有効／無効状態を監視し、コンソールへ警告ログを出力する。
 ///
 /// 正式仕様（要件定義書・SS設計書・UI設計書）には存在しない、開発時のみのデバッグ処理であり、
@@ -26,7 +26,7 @@ enum PreviewBypassLogger {
 
     /// 現在の状態を確認し、初回（force）または前回ログ時から変化していた場合のみ出力する。
     private static func logIfNeeded(force: Bool) {
-        let current = BluetoothManager.isPreviewBypassEnabled
+        let current = DebugSettings.isPreviewBypassEnabled
         guard force || current != lastLoggedState else { return }
         lastLoggedState = current
 

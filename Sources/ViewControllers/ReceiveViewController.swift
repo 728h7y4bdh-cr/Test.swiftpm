@@ -27,8 +27,10 @@ final class ReceiveViewController: UIViewController {
             title: "戻る", style: .plain, target: self, action: #selector(didTapBack)
         )
         setUpUI()
-        // データ受信処理（PS設計書 6.6）の結果通知（受信検出あり／なし、想定外切断）を本画面で受け取る
+        // データ受信処理（PS設計書 6.6）の結果通知（受信検出あり／なし）を本画面で受け取る
         BluetoothManager.shared.receiveDelegate = self
+        // Bluetooth接続の予期しない切断通知を受け取る（SS設計書 6.6「予期しない切断時の仕様」）
+        BluetoothManager.shared.connectionDelegate = self
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -238,10 +240,11 @@ extension ReceiveViewController: BluetoothManagerReceiveDelegate {
             showInvalidDataAlert()
         }
     }
+}
 
-    /// 受信中に相手端末との接続が予期せず切断された（PS設計書 7章「エラーハンドリング方針」）。
-    /// 設計書上の明示的なダイアログ文言は定義されていないため、
-    /// 「戻る」ボタン相当の処理（表示中ダイアログを閉じて1つ前の画面へ戻す）で復帰させる。
+// MARK: - BluetoothManagerConnectionDelegate（SS設計書 6.6「予期しない切断時の仕様」）
+
+extension ReceiveViewController: BluetoothManagerConnectionDelegate {
     func bluetoothManagerDidDisconnectUnexpectedly(_ manager: BluetoothManager) {
         guard !isStopping else { return }
         isStopping = true
@@ -249,13 +252,25 @@ extension ReceiveViewController: BluetoothManagerReceiveDelegate {
         invalidDataRevertTimer = nil
         currentInvalidDataAlert = nil
 
-        let popBack: () -> Void = { [weak self] in
-            self?.navigationController?.popViewController(animated: true)
+        let showAlertThenPop: () -> Void = { [weak self] in
+            guard let self else { return }
+            // Step 2: 切断ダイアログを表示する
+            let alert = UIAlertController(
+                title: nil, message: "Bluetooth通信が切断されました。再接続してください", preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+                // Step 3: OKタップ後、Bluetooth接続画面へ遷移する
+                // （Bluetooth通信切断処理はBluetoothManager側で完了済みのため、ここでは遷移のみでよい）
+                self?.navigationController?.popViewController(animated: true)
+            })
+            self.present(alert, animated: true)
         }
+
+        // Step 1: 表示中のダイアログ（受信中／データ受信完了／不正データ等）があれば閉じる
         if let presented = presentedViewController {
-            presented.dismiss(animated: true, completion: popBack)
+            presented.dismiss(animated: true, completion: showAlertThenPop)
         } else {
-            popBack()
+            showAlertThenPop()
         }
     }
 }
