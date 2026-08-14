@@ -13,17 +13,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
 
-    /// アプリ起動時に一度だけ呼ばれる。
-    /// PS設計書 6.1「初期化処理」の内容をそのまま実行する：
-    ///   1. ステータスにアイドルをセット（PS設計書 3.2 No.1「アプリ起動時」に対応するイベントで遷移）
-    ///   2. 自端末IDに"000"をセット、接続先IDに"001"をセット（AppParameters.resetToInitialValues）
-    /// （要件定義書 10章「初期化処理」にも対応する内容）
+    /// アプリ起動時に一度だけ呼ばれる。初期化処理（PS設計書 6.1、要件定義書 10章）を実行する。
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        StatusManager.shared.apply(.appLaunched)
-        AppParameters.shared.resetToInitialValues()
+        AppInitializer.initialize()
         return true
     }
 

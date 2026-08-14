@@ -5,6 +5,7 @@
 | 版数 | 日付 | 内容 |
 |---|---|---|
 | 1.0 | 2026-08-13 | 初版作成 |
+| 1.1 | 2026-08-14 | 6.2/6.3のタイムアウトを30秒→60秒に変更（処理開始＝ボタン押下の瞬間から起算するよう修正）。初期化処理（6.1）を`AppInitializer`、通信切断処理（6.4）を`Disconnector`として機能単位化し、1章・8章・6.1・6.4に反映。「切断処理」章番号の誤記（7章）を6.4節へ修正 |
 
 ## 0. 本書について
 
@@ -33,11 +34,15 @@ flowchart TB
         VC4["ReceiveViewController"]
     end
 
+    AD["AppDelegate"]
+    AI["AppInitializer<br/>（6.1 初期化処理）"]
+
     BM["BluetoothManager<br/>（調停役／Coordinator）"]
 
-    subgraph funcs["機能レイヤー（PS6.2/6.3/6.5/6.6を1処理1クラスで実装）"]
+    subgraph funcs["機能レイヤー（PS6.2/6.3/6.4/6.5/6.6を1処理1クラスで実装）"]
         H1["ConnectionStartHandshake<br/>（6.2 通信開始処理）"]
         H2["ListenStartHandshake<br/>（6.3 待受開始処理）"]
+        H5["Disconnector<br/>（6.4 通信切断処理）"]
         H3["DataSender<br/>（6.5 データ送信処理）"]
         H4["DataReceiver<br/>（6.6 データ受信処理）"]
     end
@@ -51,6 +56,10 @@ flowchart TB
     PM["AppParameters<br/>（自端末ID/接続先ID）"]
     PC["PayloadCodec<br/>（ペイロード変換）"]
     CB["Core Bluetooth<br/>CBCentralManager/CBPeripheralManager"]
+
+    AD --起動時に1度だけ--> AI
+    AI -.利用.-> SM
+    AI -.利用.-> PM
 
     VC2 --> BM
     VC2 --> PM
@@ -68,6 +77,7 @@ flowchart TB
 
 | コンポーネント | 責務 |
 |---|---|
+| `AppInitializer` | 初期化処理（6.1）専用。アプリ起動時に`AppDelegate`から1度だけ呼ばれる。実処理は持たず、`StatusManager`／`AppParameters`が提供するAPIを呼び出すだけにとどめる |
 | `AppParameters` | 内部パラメータ「自端末ID」「接続先ID」の保持・永続化 |
 | `StatusManager` | 状態遷移の一元管理（3.2の遷移テーブルを保持し、`AppStatusTransitionEvent`経由でのみ遷移させる） |
 | `PayloadCodec` | 18byteペイロードのエンコード／デコード（ID⇔ASCII変換、パディング処理を含む） |
@@ -75,6 +85,7 @@ flowchart TB
 | `BluetoothPeripheralSession` | Peripheral役の役割レイヤー。アドバタイズ・GATTサーバー提供・Write受信/Notify送信のみを担い、プロトコルの意味は持たない |
 | `ConnectionStartHandshake` | 通信開始処理（6.2）専用。`BluetoothCentralSession`を介して要求送信・応答待受を行う |
 | `ListenStartHandshake` | 待受開始処理（6.3）専用。`BluetoothPeripheralSession`を介して要求待受・応答送信を行う |
+| `Disconnector` | 通信切断処理（6.4）専用。渡されたセッションのteardownと、アイドル状態への遷移を行う |
 | `DataSender` | データ送信処理（6.5）専用。`BluetoothCentralSession`を介してデータを送信する |
 | `DataReceiver` | データ受信処理（6.6）専用。`BluetoothPeripheralSession`のWrite受信窓口を介してデータチェックを行う |
 | `BluetoothManager` | 上記の役割/機能クラスを、現在の役割（Central/Peripheral）に応じて生成・接続・破棄するだけの調停役（Coordinator）。プロトコルの中身は持たない |
@@ -112,7 +123,7 @@ flowchart TB
 | 3 | Bluetooth通信開始処理中 | Bluetooth通信開始処理にて、通信開始のデータ送信時 |
 | 4 | データ送信待ち中 | Bluetooth通信開始処理にて、コール元に正常終了を通知する時 |
 | 5 | データ送信待ち中 | データ送信処理にて、データ送信完了時 |
-| 6 | Bluetooth通信待受処理中 | Bluetooth通信待受処理にて、30秒間のデータ待受開始時 |
+| 6 | Bluetooth通信待受処理中 | Bluetooth通信待受処理にて、60秒間のデータ待受開始時 |
 | 7 | データ受信待ち中 | Bluetooth通信待受処理にて、コール元に正常終了を通知する時 |
 | 8 | データ受信待ち中 | データ受信画面にて、「再開」ボタンをタップしてデータ受信処理を開始した時 |
 | 9 | データ受信停止中 | データ受信処理が「受信終了要求」を検出して、コール元に「受信終了完了」を通知する時 |
@@ -124,7 +135,7 @@ flowchart TB
 stateDiagram-v2
     [*] --> idle : アプリ起動
     idle --> connecting : 通信開始データ送信
-    idle --> listening : 30秒待受開始
+    idle --> listening : 60秒待受開始
 
     connecting --> waitingToSend : 通信開始 正常終了
     connecting --> idle : 通信開始 異常終了
@@ -211,13 +222,15 @@ stateDiagram-v2
 
 ### 5.4 現在接続中端末の切断（各処理共通の前処理）
 
-「5.Bluetooth通信開始処理」「6.Bluetooth待受開始処理」の開始時には、現在接続中の端末がある場合、まず「7.Bluetooth通信切断処理」を実行してから処理を開始する。
+「6.2 Bluetooth通信開始処理」「6.3 Bluetooth待受開始処理」の開始時には、現在接続中の端末がある場合、まず「6.4 Bluetooth通信切断処理」を実行してから処理を開始する。
 
 ## 6. 処理仕様
 
 ### 6.1 初期化処理
 
 **契機**: アプリ起動時に1度だけ。
+
+**実装**: `AppInitializer`が本処理専用の機能単位として存在する。`AppDelegate`は起動時に`AppInitializer.initialize()`を1度呼び出すのみで、Step 2・3（パラメータの初期化）自体は`AppInitializer`から内部パラメータ管理の機能（`AppParameters`）が提供するAPIを呼び出すことで行う（初期化処理自身はパラメータの中身を知らない）。将来的に初期化処理が増えた場合も、`AppInitializer`内に呼び出しを追加するだけでよく、`AppDelegate`側の変更は不要な構成とする。
 
 | Step | 処理内容 |
 |---|---|
@@ -237,18 +250,18 @@ sequenceDiagram
     participant P as 相手端末(Peripheral)
 
     UI->>BM: startConnecting(myID, targetID)
-    BM->>BM: 接続中端末があれば切断処理(7章)
+    BM->>BM: 接続中端末があれば切断処理(6.4節)
+    BM->>BM: 60秒タイマー開始
     BM->>CB: スキャン開始
     CB-->>BM: Peripheral発見・接続
     BM->>BM: ステータス→connecting
     BM->>P: Write: 送信種別0x29,通信種別0x01,\n送信元ID=自端末ID,送信先ID=接続先ID,\n入力データ=0x20埋め
-    BM->>BM: 30秒タイマー開始
-    alt 30秒以内にNotify受信
+    alt 60秒以内にNotify受信
         P-->>BM: Notify: 送信種別0x92,通信種別0x01,\n送信元ID=送信先ID,送信先ID=送信元ID(送信時と一致),\n入力データ=0x20埋め
         BM->>BM: ステータス→waitingToSend
         BM-->>UI: 正常終了
-    else 30秒以内に受信なし
-        BM->>BM: 切断処理(7章)実行
+    else 60秒以内に相手が見つからない、または受信なし
+        BM->>BM: 切断処理(6.4節)実行
         BM-->>UI: 異常終了
     end
 ```
@@ -256,10 +269,11 @@ sequenceDiagram
 | 項目 | 内容 |
 |---|---|
 | 事前条件 | 自端末IDと接続先IDが不一致であること（画面側でチェック済み） |
+| タイムアウト | 処理開始（「接続開始」ボタン押下）の瞬間から60秒。相手の発見（スキャン）〜応答検出までの処理全体に適用する（Core Bluetoothのスキャン自体には時間制限がないため、本処理側でタイムアウトを管理する） |
 | 送信データ | 4.1のペイロードに、送信種別`0x29`固定、通信種別`0x01`、送信元ID=自端末ID、送信先ID=接続先ID、入力データ=`0x20`×10をセットして1回送信 |
-| 待受内容 | 送信種別`0x92`固定、通信種別`0x01`、送信元ID=送信時の送信先ID、送信先ID=送信時の送信元ID、入力データ=`0x20`埋め を30秒間待受 |
-| 正常系 | 30秒以内に上記データを検出 → ステータスを`waitingToSend`に遷移し、コール元に正常終了を通知 |
-| 異常系 | 30秒以内に検出できず → 切断処理（7章）を実行後、コール元に異常終了を通知 |
+| 待受内容 | 送信種別`0x92`固定、通信種別`0x01`、送信元ID=送信時の送信先ID、送信先ID=送信時の送信元ID、入力データ=`0x20`埋め |
+| 正常系 | 60秒以内に相手を発見し、要求送信〜上記データの検出まで完了 → ステータスを`waitingToSend`に遷移し、コール元に正常終了を通知 |
+| 異常系 | 60秒以内に相手が見つからない、または応答を検出できず → 切断処理（6.4節）を実行後、コール元に異常終了を通知 |
 
 ### 6.3 Bluetooth待受開始処理（Peripheral側）
 
@@ -273,23 +287,22 @@ sequenceDiagram
     participant C as 相手端末(Central)
 
     UI->>BM: startListening(myID, targetID)
-    BM->>BM: 接続中端末があれば切断処理(7章)
+    BM->>BM: 接続中端末があれば切断処理(6.4節)
+    BM->>BM: ステータス→listening、60秒タイマー開始
     BM->>PBM: アドバタイズ開始
-    BM->>BM: ステータス→listening
-    BM->>BM: 30秒タイマー開始
-    alt 30秒以内にWrite受信
+    alt 60秒以内にWrite受信
         C->>PBM: Write: 送信種別0x29,通信種別0x01,\n送信元ID=接続先ID,送信先ID=自端末ID,\n入力データ=0x20埋め
-        BM->>BM: 30秒タイマー解除
+        BM->>BM: 60秒タイマー解除
         BM->>C: Notify: 送信種別0x92,通信種別0x01,\n送信元ID=自端末ID,送信先ID=接続先ID,\n入力データ=0x20埋め
         alt Notify送信成功
             BM->>BM: ステータス→waitingToReceive
             BM-->>UI: 正常終了
         else Notify送信失敗
-            BM->>BM: 切断処理(7章)実行
+            BM->>BM: 切断処理(6.4節)実行
             BM-->>UI: 異常終了
         end
-    else 30秒以内に受信なし
-        BM->>BM: 切断処理(7章)実行
+    else 60秒以内に受信なし
+        BM->>BM: 切断処理(6.4節)実行
         BM-->>UI: 異常終了
     end
 ```
@@ -297,10 +310,11 @@ sequenceDiagram
 | 項目 | 内容 |
 |---|---|
 | 事前条件 | 自端末IDと接続先IDが不一致であること（画面側でチェック済み） |
-| 待受内容 | 送信種別`0x29`固定、通信種別`0x01`、送信元ID=接続先ID、送信先ID=自端末ID、入力データ=`0x20`埋め を30秒間待受 |
+| タイムアウト | 処理開始（「待受開始」ボタン押下）の瞬間から60秒 |
+| 待受内容 | 送信種別`0x29`固定、通信種別`0x01`、送信元ID=接続先ID、送信先ID=自端末ID、入力データ=`0x20`埋め |
 | 検出時送信データ | 送信種別`0x92`固定、通信種別`0x01`、送信元ID=自端末ID、送信先ID=接続先ID、入力データ=`0x20`×10 を1回送信 |
 | 正常系 | 送信成功 → ステータスを`waitingToReceive`に遷移し、コール元に正常終了を通知 |
-| 異常系 | 30秒以内に未検出、または応答送信失敗 → 切断処理（7章）を実行後、コール元に異常終了を通知 |
+| 異常系 | 60秒以内に未検出、または応答送信失敗 → 切断処理（6.4節）を実行後、コール元に異常終了を通知 |
 
 ### 6.4 Bluetooth通信切断処理
 
@@ -311,6 +325,8 @@ sequenceDiagram
 
 他の全処理（6.2, 6.3, 6.5, 6.6）から異常系ハンドリングとして呼び出される共通処理。
 
+**実装**: 6.2・6.3と同様、本処理専用の機能単位として`Disconnector`が存在する（Step 1・2を担当）。現在どちらの役割（Central/Peripheral）のセッションを保持しているかの判断や、保持している参照自体のクリアは調停役（`BluetoothManager`）側の責務とし、`Disconnector`はプロトコルの意味・役割の区別を持たない。
+
 ### 6.5 データ送信処理（Central側／データ送信画面から呼び出し）
 
 | 項目 | 内容 |
@@ -319,7 +335,7 @@ sequenceDiagram
 | ステータス遷移 | 開始時: `sending`（データ送信処理中）／完了時: `waitingToSend`（データ送信待ち中） |
 | 送信データ | 送信種別`0x29`固定、通信種別`0x02`、送信元ID=自端末ID、送信先ID=接続先ID、入力データ=選択されたテストデータ（`YAMA`/`KAWA`）をASCII変換し残りを`0x20`埋め |
 | 正常系 | 送信成功 → コール元に正常終了を通知 |
-| 異常系 | 送信失敗 → 切断処理（7章＝6.4節）を実行後、コール元に異常終了を通知 |
+| 異常系 | 送信失敗 → 切断処理（6.4節）を実行後、コール元に異常終了を通知 |
 
 ### 6.6 データ受信処理（Peripheral側／データ受信画面から呼び出し）
 
@@ -358,12 +374,13 @@ sequenceDiagram
 |---|---|
 | Bluetooth権限が無い状態での通信処理呼び出し | Bluetooth接続画面で権限確認済みであることを前提とし、本処理層では権限エラーを異常終了として扱い切断処理を実行する |
 | 通信中の予期しない切断（相手端末の電源OFF等） | Core BluetoothのDelegateで切断を検知し、進行中の処理があれば異常終了としてコール元に通知、ステータスをアイドルに初期化する |
-| タイムアウト（30秒） | `DispatchSourceTimer`等を用いて管理し、タイムアウト検出時は切断処理を実行してから異常終了を通知する |
+| タイムアウト（60秒） | 処理開始（ボタン押下）時点から`Timer`で管理し、タイムアウト検出時は切断処理を実行してから異常終了を通知する |
 
 ## 8. クラス構成（概要設計）
 
 | クラス/型 | 種別 | 概要 |
 |---|---|---|
+| `AppInitializer` | enum | 初期化処理（6.1）専用。`AppDelegate`から起動時に1度だけ呼ばれ、`StatusManager`／`AppParameters`のAPI呼び出しに委譲する |
 | `AppParameters` | class | 自端末ID・接続先IDの保持 |
 | `AppStatus` | enum | 3.1の状態一覧 |
 | `AppStatusTransitionEvent` | enum | 3.2の状態遷移契機一覧に1:1で対応する遷移イベント |
@@ -378,6 +395,8 @@ sequenceDiagram
 | `BluetoothPeripheralSession` | class | Peripheral役の役割レイヤー。アドバタイズ・GATTサーバー提供・Write受信/Notify送信のみを担う（`CBPeripheralManagerDelegate`実装） |
 | `ConnectionStartHandshake` | class | 通信開始処理（6.2）専用の機能レイヤークラス |
 | `ListenStartHandshake` | class | 待受開始処理（6.3）専用の機能レイヤークラス |
+| `DataSender` | class | データ送信処理（6.5）専用の機能レイヤークラス |
+| `Disconnector` | enum | 通信切断処理（6.4）専用の機能レイヤー型。渡されたセッションのteardownとアイドル状態への遷移を行う |
 | `DataSender` | class | データ送信処理（6.5）専用の機能レイヤークラス |
 | `DataReceiver` | class | データ受信処理（6.6）専用の機能レイヤークラス |
 | `BluetoothManager` | class | 役割/機能レイヤーの各クラスを、現在の役割（Central/Peripheral）に応じて生成・接続・破棄するだけの調停役（Coordinator）。プロトコルの中身は持たず、通信開始処理／待受開始処理／通信切断処理／データ送信処理／データ受信処理の公開APIを提供する |

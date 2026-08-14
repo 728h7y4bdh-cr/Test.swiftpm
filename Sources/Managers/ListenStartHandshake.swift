@@ -2,12 +2,16 @@ import Foundation
 
 /// Bluetooth待受開始処理（PS設計書 6.3、要件定義書 6章）。Peripheral役。
 ///
-/// 30秒間、通信開始要求（送信種別0x29・通信種別0x01）を待受し、検出できれば応答を1回送信する。
+/// 処理開始（`start`呼び出し＝「待受開始」ボタン押下）の瞬間から60秒間、通信開始要求
+/// （送信種別0x29・通信種別0x01）を待受し、検出できれば応答を1回送信する。
 /// データ受信処理（`DataReceiver`）とは完全に別のクラスであり、待受成功後の「受信データの中身を
 /// 判定する」ロジックは一切持たない（ハンドシェイクと受信処理の混在を避ける）。
 /// CoreBluetooth自体の型には依存せず、`BluetoothPeripheralSession`が提供する
 /// クロージャベースの窓口（Data の送受信）のみを介して動作する。
 final class ListenStartHandshake {
+    /// PS設計書 6.3：処理開始から本処理全体（アドバタイズ開始〜要求検出）に許容する時間
+    private static let timeoutInterval: TimeInterval = 60.0
+
     private let session: BluetoothPeripheralSession
     private var timeoutTimer: Timer?
     private var completion: ((Bool) -> Void)?
@@ -25,27 +29,23 @@ final class ListenStartHandshake {
         self.completion = completion
 
         session.onFailure = { [weak self] in self?.finish(success: false) }
-        session.onReady = { [weak self] in
-            self?.beginWaiting()
-        }
         session.onWriteReceived = { [weak self] data in
             self?.handleWrite(data)
         }
+
+        // PS設計書 3.2 No.6：処理開始（ボタン押下）時点でlisteningへ遷移
+        StatusManager.shared.apply(.listenStarted)
+
+        // PS設計書 6.3：処理開始（ボタン押下）の瞬間から60秒のタイムアウトを設定する
+        timeoutTimer?.invalidate()
+        timeoutTimer = Timer.scheduledTimer(withTimeInterval: Self.timeoutInterval, repeats: false) { [weak self] _ in
+            self?.finish(success: false)
+        }
+
         session.start()
     }
 
-    /// アドバタイズ開始（＝待受開始）に伴い、PS設計書 6.3「30秒間のデータ待受」タイマーを開始する。
-    private func beginWaiting() {
-        // PS設計書 3.2 No.6：30秒間のデータ待受開始時にlisteningへ遷移
-        StatusManager.shared.apply(.listenStarted)
-
-        timeoutTimer?.invalidate()
-        timeoutTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: false) { [weak self] _ in
-            self?.finish(success: false)
-        }
-    }
-
-    /// PS設計書 6.3「30秒以内に検出した場合」の判定処理と応答送信
+    /// PS設計書 6.3「60秒以内に検出した場合」の判定処理と応答送信
     private func handleWrite(_ data: Data) {
         guard let payload = PayloadCodec.decode(data) else { return }
         // PS設計書 6.3「待受内容」：送信種別0x29固定・通信種別0x01、
@@ -75,7 +75,6 @@ final class ListenStartHandshake {
     private func finish(success: Bool) {
         timeoutTimer?.invalidate()
         timeoutTimer = nil
-        session.onReady = nil
         session.onWriteReceived = nil
         session.onFailure = nil
 

@@ -10,7 +10,7 @@ enum AppStatus {
     case connecting
     /// データ送信待ち中（PS設計書 3.1 No.3）：通信開始処理の正常終了後、またはデータ送信完了後の状態
     case waitingToSend
-    /// Bluetooth通信待受処理中（PS設計書 3.1 No.4）：30秒間のデータ待受を行っている間の状態
+    /// Bluetooth通信待受処理中（PS設計書 3.1 No.4）：60秒間のデータ待受を行っている間の状態
     case listening
     /// データ受信待ち中（PS設計書 3.1 No.5）：待受処理の正常終了後、または「受信再開」タップ後の状態
     case waitingToReceive

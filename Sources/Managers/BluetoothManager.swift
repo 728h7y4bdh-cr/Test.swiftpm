@@ -20,8 +20,8 @@ protocol BluetoothManagerConnectionDelegate: AnyObject {
 ///
 /// 要件定義書で定義される各「処理」は、実際には独立した機能単位であるという考え方に基づき、
 /// 通信開始処理（`ConnectionStartHandshake`）・待受開始処理（`ListenStartHandshake`）・
-/// データ送信処理（`DataSender`）・データ受信処理（`DataReceiver`）を、それぞれ専用クラスとして
-/// 分離してある。本クラスはプロトコルの中身（バイトフォーマットやハンドシェイクの照合条件など）を
+/// データ送信処理（`DataSender`）・データ受信処理（`DataReceiver`）・通信切断処理（`Disconnector`）を、
+/// それぞれ専用の機能単位として分離してある。本クラスはプロトコルの中身（バイトフォーマットやハンドシェイクの照合条件など）を
 /// 一切持たず、「今どちらの役割（Central/Peripheral、PS設計書5.1）で、どの処理を動かすか」に応じて
 /// それらを生成・接続・破棄するだけの調停役に徹する。
 ///
@@ -80,7 +80,7 @@ final class BluetoothManager {
                     self.wireCentralFailureCallback()
                     completion(true)
                 } else {
-                    // PS設計書 6.2「30秒以内に検出しなかった場合はBluetooth通信を切断して、異常終了を通知する」
+                    // PS設計書 6.2「60秒以内に検出しなかった場合はBluetooth通信を切断して、異常終了を通知する」
                     self.disconnect { completion(false) }
                 }
             }
@@ -105,7 +105,7 @@ final class BluetoothManager {
         }
         #endif
 
-        // PS設計書 6.3：「現在、接続中の端末がある場合は切断後」に30秒間の待受を開始する
+        // PS設計書 6.3：「現在、接続中の端末がある場合は切断後」に60秒間の待受を開始する
         disconnect {
             self.role = .peripheral
             let session = BluetoothPeripheralSession()
@@ -131,14 +131,11 @@ final class BluetoothManager {
     // MARK: - Public: Bluetooth通信切断処理（PS設計書 6.4）
 
     func disconnect(completion: (() -> Void)? = nil) {
-        centralSession?.teardown()
+        Disconnector.disconnect(centralSession: centralSession, peripheralSession: peripheralSession)
         centralSession = nil
-        peripheralSession?.teardown()
         peripheralSession = nil
         dataReceiver = nil
         role = .none
-        // PS設計書 3.2 No.2：切断処理完了後にアイドルへ遷移
-        StatusManager.shared.apply(.disconnectCompleted)
         completion?()
     }
 

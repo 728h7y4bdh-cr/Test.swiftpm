@@ -16,7 +16,7 @@ enum AppStatusTransitionEvent {
     case connectionStartSucceeded
     /// No.5：データ送信処理にて、データ送信完了時
     case dataSendCompleted
-    /// No.6：Bluetooth通信待受処理にて、30秒間のデータ待受開始時
+    /// No.6：Bluetooth通信待受処理にて、60秒間のデータ待受開始時
     case listenStarted
     /// No.7：Bluetooth通信待受処理にて、コール元に正常終了を通知する時
     case listenSucceeded
