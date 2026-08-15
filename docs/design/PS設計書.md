@@ -10,6 +10,7 @@
 | 1.3 | 2026-08-15 | Bluetooth通信に関わる画面の共通処理を`CommunicationBaseViewController`に集約。1章・8章に反映 |
 | 1.4 | 2026-08-15 | アプリ全体で使う汎用ユーティリティ（アサート等）を`CommonUtility`として追加し、1章・8章に反映。`StatusManager.apply`のアサート呼び出しを`CommonUtility.assert`経由に変更 |
 | 1.5 | 2026-08-15 | データ送信画面の「戻る」ボタン処理が、予期しない切断検知処理と別々の判定だった点を修正。`CommunicationBaseViewController`共通の排他制御（`beginHandlingCommunicationEnd()`）に参加させ、両者が同時に走らないようにした（動作仕様自体に変更はなし） |
+| 1.6 | 2026-08-15 | `CommonUtility`の配置先を`Sources/Managers/`から`Sources/Common/`へ変更（コーディング規約3.1改訂に伴う。クラス設計・呼び出し方に変更はなし） |
 
 ## 0. 本書について
 
