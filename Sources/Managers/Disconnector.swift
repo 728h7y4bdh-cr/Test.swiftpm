@@ -1,6 +1,6 @@
 import Foundation
 
-/// Bluetooth通信切断処理（PS設計書 6.4、要件定義書 5章）。
+/// Bluetooth通信切断処理（PS設計書 6.4、要件定義書 7章）。
 ///
 /// 役割レイヤーのセッション（`BluetoothCentralSession`／`BluetoothPeripheralSession`）の破棄と、
 /// 状態遷移（アイドルへの復帰）のみに責任を持つ。通信開始処理（`ConnectionStartHandshake`）・

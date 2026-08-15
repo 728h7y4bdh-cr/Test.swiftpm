@@ -20,13 +20,13 @@ final class BluetoothPeripheralSession: NSObject {
     private var peripheralManager: CBPeripheralManager?
     private var requestCharacteristic: CBMutableCharacteristic?
     private var responseCharacteristic: CBMutableCharacteristic?
-    private var advertiseRequested = false
+    private var isAdvertiseRequested = false
     private var pendingNotifyData: Data?
     private var pendingNotifyCompletion: ((Bool) -> Void)?
 
     /// PS設計書 5.2「GATTプロファイル定義」の2キャラクタリスティックを公開し、アドバタイズを開始する
     func start() {
-        advertiseRequested = true
+        isAdvertiseRequested = true
         if peripheralManager == nil {
             peripheralManager = CBPeripheralManager(delegate: self, queue: nil)
         }
@@ -55,7 +55,7 @@ final class BluetoothPeripheralSession: NSObject {
         onReady = nil
         onWriteReceived = nil
         onFailure = nil
-        advertiseRequested = false
+        isAdvertiseRequested = false
         pendingNotifyData = nil
         pendingNotifyCompletion = nil
         if let peripheralManager, peripheralManager.isAdvertising {
@@ -67,8 +67,8 @@ final class BluetoothPeripheralSession: NSObject {
     }
 
     private func beginAdvertisingIfReady() {
-        guard advertiseRequested, let peripheralManager, peripheralManager.state == .poweredOn else { return }
-        advertiseRequested = false
+        guard isAdvertiseRequested, let peripheralManager, peripheralManager.state == .poweredOn else { return }
+        isAdvertiseRequested = false
 
         // Request/Dataキャラクタリスティック：Central→Peripheralへの書き込み専用（PS設計書 5.2）
         let requestChar = CBMutableCharacteristic(
@@ -101,7 +101,7 @@ extension BluetoothPeripheralSession: CBPeripheralManagerDelegate {
         case .poweredOn:
             beginAdvertisingIfReady()
         case .poweredOff, .unauthorized, .unsupported:
-            if advertiseRequested || requestCharacteristic != nil {
+            if isAdvertiseRequested || requestCharacteristic != nil {
                 onFailure?()
             }
         default:

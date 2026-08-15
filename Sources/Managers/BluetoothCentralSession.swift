@@ -24,13 +24,13 @@ final class BluetoothCentralSession: NSObject {
     private var peripheral: CBPeripheral?
     private var requestCharacteristic: CBCharacteristic?
     private var responseCharacteristic: CBCharacteristic?
-    private var scanRequested = false
+    private var isScanRequested = false
     private var pendingWriteCompletion: ((Bool) -> Void)?
 
     /// PS設計書 6.2「相手端末を発見する」：BluetoothGATT.serviceUUIDをアドバタイズしている
     /// 端末（＝待受中の相手）をスキャンし、発見次第接続する。
     func start() {
-        scanRequested = true
+        isScanRequested = true
         if centralManager == nil {
             // CBCentralManagerの生成が、必要に応じてOS標準のBluetooth使用許可ダイアログの契機にもなる
             centralManager = CBCentralManager(delegate: self, queue: nil)
@@ -59,7 +59,7 @@ final class BluetoothCentralSession: NSObject {
         onReady = nil
         onResponseReceived = nil
         onFailure = nil
-        scanRequested = false
+        isScanRequested = false
         pendingWriteCompletion = nil
         if let peripheral {
             centralManager?.cancelPeripheralConnection(peripheral)
@@ -71,8 +71,8 @@ final class BluetoothCentralSession: NSObject {
     }
 
     private func beginScanIfReady() {
-        guard scanRequested, let centralManager, centralManager.state == .poweredOn else { return }
-        scanRequested = false
+        guard isScanRequested, let centralManager, centralManager.state == .poweredOn else { return }
+        isScanRequested = false
         // BluetoothGATT.serviceUUIDをアドバタイズしている端末（＝待受中の相手）のみをスキャン対象にする
         centralManager.scanForPeripherals(withServices: [BluetoothGATT.serviceUUID], options: nil)
     }
@@ -86,7 +86,7 @@ extension BluetoothCentralSession: CBCentralManagerDelegate {
         case .poweredOn:
             beginScanIfReady()
         case .poweredOff, .unauthorized, .unsupported:
-            if scanRequested || peripheral != nil {
+            if isScanRequested || peripheral != nil {
                 onFailure?()
             }
         default:
