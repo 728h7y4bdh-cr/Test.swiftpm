@@ -81,14 +81,14 @@ flowchart TB
 | `AppParameters` | 内部パラメータ「自端末ID」「接続先ID」の保持・永続化 |
 | `StatusManager` | 状態遷移の一元管理（3.2の遷移テーブルを保持し、`AppStatusTransitionEvent`経由でのみ遷移させる） |
 | `PayloadCodec` | 18byteペイロードのエンコード／デコード（ID⇔ASCII変換、パディング処理を含む） |
-| `BluetoothCentralSession` | Central役の役割レイヤー。CoreBluetoothの接続確立・GATT探索・Write/Notify送受信のみを担い、プロトコルの意味は持たない |
-| `BluetoothPeripheralSession` | Peripheral役の役割レイヤー。アドバタイズ・GATTサーバー提供・Write受信/Notify送信のみを担い、プロトコルの意味は持たない |
+| `BluetoothCentralSession` | Central役の役割レイヤー。Core Bluetooth（0.1 No.1の通信ライブラリ）の接続確立・GATT探索・Write/Notify送受信APIを呼び出すだけで、4章のペイロードフォーマット（送信種別・通信種別・ID・入力データの意味）は解釈しない |
+| `BluetoothPeripheralSession` | Peripheral役の役割レイヤー。Core Bluetoothのアドバタイズ・GATTサーバー提供・Write受信/Notify送信APIを呼び出すだけで、4章のペイロードフォーマットは解釈しない |
 | `ConnectionStartHandshake` | 通信開始処理（6.2）専用。`BluetoothCentralSession`を介して要求送信・応答待受を行う |
 | `ListenStartHandshake` | 待受開始処理（6.3）専用。`BluetoothPeripheralSession`を介して要求待受・応答送信を行う |
 | `Disconnector` | 通信切断処理（6.4）専用。渡されたセッションのteardownと、アイドル状態への遷移を行う |
 | `DataSender` | データ送信処理（6.5）専用。`BluetoothCentralSession`を介してデータを送信する |
 | `DataReceiver` | データ受信処理（6.6）専用。`BluetoothPeripheralSession`のWrite受信窓口を介してデータチェックを行う |
-| `BluetoothManager` | 上記の役割/機能クラスを、現在の役割（Central/Peripheral）に応じて生成・接続・破棄するだけの調停役（Coordinator）。プロトコルの中身は持たない |
+| `BluetoothManager` | 上記の役割/機能クラスを、現在の役割（Central/Peripheral）に応じて生成・接続・破棄するだけの調停役（Coordinator）。4章のペイロードフォーマットの意味は持たない |
 | 各`ViewController` | 画面表示・ユーザー操作の受付・`BluetoothManager`/`AppParameters`の呼び出し |
 
 ## 2. 内部パラメータ
@@ -325,7 +325,7 @@ sequenceDiagram
 
 他の全処理（6.2, 6.3, 6.5, 6.6）から異常系ハンドリングとして呼び出される共通処理。
 
-**実装**: 6.2・6.3と同様、本処理専用の機能単位として`Disconnector`が存在する（Step 1・2を担当）。現在どちらの役割（Central/Peripheral）のセッションを保持しているかの判断や、保持している参照自体のクリアは調停役（`BluetoothManager`）側の責務とし、`Disconnector`はプロトコルの意味・役割の区別を持たない。
+**実装**: 6.2・6.3と同様、本処理専用の機能単位として`Disconnector`が存在する（Step 1・2を担当）。現在どちらの役割（Central/Peripheral）のセッションを保持しているかの判断や、保持している参照自体のクリアは調停役（`BluetoothManager`）側の責務とし、`Disconnector`は4章のペイロードフォーマットの意味を持たず、役割（Central/Peripheral）の区別もしない。
 
 ### 6.5 データ送信処理（Central側／データ送信画面から呼び出し）
 
@@ -374,7 +374,7 @@ sequenceDiagram
 |---|---|
 | Bluetooth権限が無い状態での通信処理呼び出し | Bluetooth接続画面で権限確認済みであることを前提とし、本処理層では権限エラーを異常終了として扱い切断処理を実行する |
 | 通信中の予期しない切断（相手端末の電源OFF等） | Core BluetoothのDelegateで切断を検知し、進行中の処理があれば異常終了としてコール元に通知、ステータスをアイドルに初期化する |
-| タイムアウト（60秒） | 処理開始（ボタン押下）時点から`Timer`で管理し、タイムアウト検出時は切断処理を実行してから異常終了を通知する |
+| タイムアウト（60秒） | 処理開始（Bluetooth接続画面の「接続開始」ボタンまたは「待受開始」ボタンの押下）時点から`Timer`で管理し、タイムアウト検出時は切断処理を実行してから異常終了を通知する |
 
 ## 8. クラス構成（概要設計）
 
@@ -399,7 +399,7 @@ sequenceDiagram
 | `Disconnector` | enum | 通信切断処理（6.4）専用の機能レイヤー型。渡されたセッションのteardownとアイドル状態への遷移を行う |
 | `DataSender` | class | データ送信処理（6.5）専用の機能レイヤークラス |
 | `DataReceiver` | class | データ受信処理（6.6）専用の機能レイヤークラス |
-| `BluetoothManager` | class | 役割/機能レイヤーの各クラスを、現在の役割（Central/Peripheral）に応じて生成・接続・破棄するだけの調停役（Coordinator）。プロトコルの中身は持たず、通信開始処理／待受開始処理／通信切断処理／データ送信処理／データ受信処理の公開APIを提供する |
+| `BluetoothManager` | class | 役割/機能レイヤーの各クラスを、現在の役割（Central/Peripheral）に応じて生成・接続・破棄するだけの調停役（Coordinator）。4章のペイロードフォーマットの意味は持たず、通信開始処理／待受開始処理／通信切断処理／データ送信処理／データ受信処理の公開APIを提供する |
 
 ## 9. 用語集
 

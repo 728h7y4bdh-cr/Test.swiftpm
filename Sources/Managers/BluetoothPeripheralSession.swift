@@ -4,8 +4,9 @@ import Foundation
 /// Peripheral役としてのBluetooth接続を担う「役割」レイヤー（PS設計書 5.1「Central/Peripheral役割」）。
 ///
 /// アドバタイズ・GATTサーバーの提供・Write受信・Notify送信という「通信の運び方」だけに
-/// 責任を持つ。待受開始ハンドシェイク（PS設計書 6.3「Bluetooth待受開始処理」）やデータ受信チェック
-/// （6.6「データ受信処理」）が「受信した内容に何を期待するか」というプロトコル上の意味は一切知らない。
+/// 責任を持つ。BLE自体の通信処理はCore Bluetoothライブラリが行うため、このクラスはそのAPIを
+/// 呼び出すだけであり、待受開始ハンドシェイク（PS設計書 6.3「Bluetooth待受開始処理」）やデータ受信チェック
+/// （6.6「データ受信処理」）が「受信した内容に何を期待するか」というアプリケーション独自の通信内容は一切知らない。
 /// 上位の`ListenStartHandshake`／`DataReceiver`が、このセッションが提供するクロージャベースの
 /// 窓口を介して実際のペイロードを送受信する。
 final class BluetoothPeripheralSession: NSObject {

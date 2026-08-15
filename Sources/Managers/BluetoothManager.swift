@@ -21,7 +21,7 @@ protocol BluetoothManagerConnectionDelegate: AnyObject {
 /// 要件定義書で定義される各「処理」は、実際には独立した機能単位であるという考え方に基づき、
 /// 通信開始処理（`ConnectionStartHandshake`）・待受開始処理（`ListenStartHandshake`）・
 /// データ送信処理（`DataSender`）・データ受信処理（`DataReceiver`）・通信切断処理（`Disconnector`）を、
-/// それぞれ専用の機能単位として分離してある。本クラスはプロトコルの中身（バイトフォーマットやハンドシェイクの照合条件など）を
+/// それぞれ専用の機能単位として分離してある。本クラスはアプリケーション独自の通信内容（バイトフォーマットやハンドシェイクの照合条件など）を
 /// 一切持たず、「今どちらの役割（Central/Peripheral、PS設計書5.1）で、どの処理を動かすか」に応じて
 /// それらを生成・接続・破棄するだけの調停役に徹する。
 ///
