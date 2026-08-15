@@ -64,7 +64,7 @@ final class StatusManager {
     func apply(_ event: AppStatusTransitionEvent) -> AppStatus {
         guard let newStatus = Self.transitionTable[event] else {
             // transitionTableにイベントの追加漏れがある場合のみ到達する
-            assertionFailure("未定義の状態遷移イベント: \(event)")
+            CommonUtility.assert(false, "未定義の状態遷移イベント: \(event)")
             return status
         }
         status = newStatus

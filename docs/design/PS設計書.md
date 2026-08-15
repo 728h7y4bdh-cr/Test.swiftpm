@@ -8,6 +8,7 @@
 | 1.1 | 2026-08-14 | 6.2/6.3のタイムアウトを30秒→60秒に変更（処理開始＝ボタン押下の瞬間から起算するよう修正）。初期化処理（6.1）を`AppInitializer`、通信切断処理（6.4）を`Disconnector`として機能単位化し、1章・8章・6.1・6.4に反映。「切断処理」章番号の誤記（7章）を6.4節へ修正 |
 | 1.2 | 2026-08-15 | 8章のクラス構成表で`DataSender`行が重複していたのを修正（1行に統合） |
 | 1.3 | 2026-08-15 | Bluetooth通信に関わる画面の共通処理を`CommunicationBaseViewController`に集約。1章・8章に反映 |
+| 1.4 | 2026-08-15 | アプリ全体で使う汎用ユーティリティ（アサート等）を`CommonUtility`として追加し、1章・8章に反映。`StatusManager.apply`のアサート呼び出しを`CommonUtility.assert`経由に変更 |
 
 ## 0. 本書について
 
@@ -61,11 +62,13 @@ flowchart TB
     SM["StatusManager<br/>（状態遷移の一元管理）"]
     PM["AppParameters<br/>（自端末ID/接続先ID）"]
     PC["PayloadCodec<br/>（ペイロード変換）"]
+    CU["CommonUtility<br/>（汎用ユーティリティ。アプリのどこからでも利用可）"]
     CB["Core Bluetooth<br/>CBCentralManager/CBPeripheralManager"]
 
     AD --起動時に1度だけ--> AI
     AI -.利用.-> SM
     AI -.利用.-> PM
+    SM -.利用.-> CU
 
     VC2 --> BM
     VC2 --> PM
@@ -87,6 +90,7 @@ flowchart TB
 | `AppParameters` | 内部パラメータ「自端末ID」「接続先ID」の保持・永続化 |
 | `StatusManager` | 状態遷移の一元管理（3.2の遷移テーブルを保持し、`AppStatusTransitionEvent`経由でのみ遷移させる） |
 | `PayloadCodec` | 18byteペイロードのエンコード／デコード（ID⇔ASCII変換、パディング処理を含む） |
+| `CommonUtility` | アプリ全体のどこからでも呼び出せる汎用ユーティリティ（アサート等）。継承を使わず`enum`＋`static func`で提供する |
 | `BluetoothCentralSession` | Central役の役割レイヤー。Core Bluetooth（0.1 No.1の通信ライブラリ）の接続確立・GATT探索・Write/Notify送受信APIを呼び出すだけで、4章のペイロードフォーマット（送信種別・通信種別・ID・入力データの意味）は解釈しない |
 | `BluetoothPeripheralSession` | Peripheral役の役割レイヤー。Core Bluetoothのアドバタイズ・GATTサーバー提供・Write受信/Notify送信APIを呼び出すだけで、4章のペイロードフォーマットは解釈しない |
 | `ConnectionStartHandshake` | 通信開始処理（6.2）専用。`BluetoothCentralSession`を介して要求送信・応答待受を行う |
@@ -396,6 +400,7 @@ sequenceDiagram
 | `CommunicationType` | enum | 通信種別（`connection = 0x01`, `data = 0x02`） |
 | `Payload` | struct | 18byteペイロードのモデル（送信種別/通信種別/送信元ID/送信先ID/入力データ） |
 | `PayloadCodec` | enum(static) | `Payload` ⇔ `Data`(18byte) の相互変換、ID⇔ASCII変換 |
+| `CommonUtility` | enum(static) | アプリ全体のどこからでも呼び出せる汎用ユーティリティ（アサート等）。継承を使わない形で提供する |
 | `BluetoothGATT` | enum | Service／Characteristicのuuid定義（5.2） |
 | `BluetoothAuthorizationChecker` | class | Bluetooth使用許可確認（SS設計書4.1） |
 | `BluetoothCentralSession` | class | Central役の役割レイヤー。CoreBluetoothの接続確立・GATT探索・Write/Notify送受信のみを担う（`CBCentralManagerDelegate`, `CBPeripheralDelegate`実装） |
