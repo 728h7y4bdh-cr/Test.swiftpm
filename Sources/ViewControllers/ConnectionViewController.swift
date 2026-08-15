@@ -166,7 +166,7 @@ final class ConnectionViewController: UIViewController {
 
         // SS設計書 4.3.1「一致（自端末ID = 接続先ID）：ダイアログを表示し、処理を開始せず画面遷移も行わない」
         guard myID != targetID else {
-            presentAlert(message: "「自端末IDと接続先ID」が一致しています」")
+            presentAlert(message: "「自端末IDと接続先ID」が一致しています")
             return
         }
 

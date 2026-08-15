@@ -6,6 +6,7 @@
 |---|---|---|
 | 1.0 | 2026-08-13 | 初版作成 |
 | 1.1 | 2026-08-14 | 6.2/6.3のタイムアウトを30秒→60秒に変更（処理開始＝ボタン押下の瞬間から起算するよう修正）。初期化処理（6.1）を`AppInitializer`、通信切断処理（6.4）を`Disconnector`として機能単位化し、1章・8章・6.1・6.4に反映。「切断処理」章番号の誤記（7章）を6.4節へ修正 |
+| 1.2 | 2026-08-15 | 8章のクラス構成表で`DataSender`行が重複していたのを修正（1行に統合） |
 
 ## 0. 本書について
 
@@ -395,7 +396,6 @@ sequenceDiagram
 | `BluetoothPeripheralSession` | class | Peripheral役の役割レイヤー。アドバタイズ・GATTサーバー提供・Write受信/Notify送信のみを担う（`CBPeripheralManagerDelegate`実装） |
 | `ConnectionStartHandshake` | class | 通信開始処理（6.2）専用の機能レイヤークラス |
 | `ListenStartHandshake` | class | 待受開始処理（6.3）専用の機能レイヤークラス |
-| `DataSender` | class | データ送信処理（6.5）専用の機能レイヤークラス |
 | `Disconnector` | enum | 通信切断処理（6.4）専用の機能レイヤー型。渡されたセッションのteardownとアイドル状態への遷移を行う |
 | `DataSender` | class | データ送信処理（6.5）専用の機能レイヤークラス |
 | `DataReceiver` | class | データ受信処理（6.6）専用の機能レイヤークラス |
