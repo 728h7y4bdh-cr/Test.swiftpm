@@ -2,7 +2,7 @@ import UIKit
 
 /// データ送信画面（SS設計書 5章「データ送信画面仕様」 / UI設計書 6章「データ送信画面」）。
 /// 要件定義書 11.3「データ送信画面」に対応する画面。Bluetooth接続画面の「接続開始」成功後（Central役）に遷移してくる。
-final class SendViewController: UIViewController {
+final class SendViewController: CommunicationBaseViewController {
     // UI設計書 6.2「部品一覧」：接続先ID表示、送信データ選択用ピッカー、送信ボタン
     private let targetIdValueLabel = UILabel()
     private let picker = UIPickerView()
@@ -13,8 +13,6 @@ final class SendViewController: UIViewController {
     private var selectedText = "YAMA"
     /// データ送信処理中かどうか。「戻る」ボタン制御（SS設計書 5.3）で参照する
     private var isSending = false
-    /// 予期しない切断の処理が二重に走らないようにするフラグ（SS設計書 5.6）
-    private var isHandlingDisconnect = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -120,44 +118,15 @@ final class SendViewController: UIViewController {
             }
         }
     }
-
-    /// OKボタン付きの単純なメッセージダイアログを表示する共通ヘルパー
-    /// （SS設計書 5.5「ダイアログ文言一覧」に記載の各文言表示に使用）。
-    private func presentAlert(message: String) {
-        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
-    }
 }
 
-// MARK: - BluetoothManagerConnectionDelegate（SS設計書 5.6「予期しない切断時の仕様」）
+// MARK: - CommunicationBaseViewController（SS設計書 5.6「予期しない切断時の仕様」）
 
-extension SendViewController: BluetoothManagerConnectionDelegate {
-    func bluetoothManagerDidDisconnectUnexpectedly(_ manager: BluetoothManager) {
-        guard !isHandlingDisconnect else { return }
-        isHandlingDisconnect = true
-        // Step 1: 送信処理が進行中であれば中断する（「データ送信中」表示を残さない）
+extension SendViewController {
+    /// 予期しない切断検知時、送信処理が進行中であれば中断する（「データ送信中」表示を残さない）。
+    /// ダイアログ表示〜画面遷移までの共通フローは`CommunicationBaseViewController`側が行う。
+    override func willHandleUnexpectedDisconnect() {
         isSending = false
-
-        let showAlert: () -> Void = { [weak self] in
-            guard let self else { return }
-            // Step 2: 切断ダイアログを表示する
-            let alert = UIAlertController(
-                title: nil, message: "Bluetooth通信が切断されました。再接続してください", preferredStyle: .alert
-            )
-            alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
-                // Step 3: OKタップ後、Bluetooth接続画面へ遷移する
-                // （Bluetooth通信切断処理はBluetoothManager側で完了済みのため、ここでは遷移のみでよい）
-                self?.navigationController?.popViewController(animated: true)
-            })
-            self.present(alert, animated: true)
-        }
-
-        if let presented = presentedViewController {
-            presented.dismiss(animated: true, completion: showAlert)
-        } else {
-            showAlert()
-        }
     }
 }
 

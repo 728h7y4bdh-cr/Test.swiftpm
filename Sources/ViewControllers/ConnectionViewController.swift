@@ -2,7 +2,7 @@ import UIKit
 
 /// Bluetooth接続画面（SS設計書 4章「Bluetooth接続画面仕様」 / UI設計書 5章「Bluetooth接続画面」）。
 /// 要件定義書 11.2「Bluetooth接続画面」に対応する画面。
-final class ConnectionViewController: UIViewController {
+final class ConnectionViewController: CommunicationBaseViewController {
     // UI設計書 5.2「部品一覧」：自端末ID／接続先IDの入力欄、接続開始／待受開始ボタン
     private let myIdTextField = UITextField()
     private let targetIdTextField = UITextField()
@@ -202,14 +202,6 @@ final class ConnectionViewController: UIViewController {
         let digits = (text ?? "").filter(\.isNumber)
         let trimmed = String(digits.suffix(3))
         return String(repeating: "0", count: max(0, 3 - trimmed.count)) + trimmed
-    }
-
-    /// OKボタン付きの単純なメッセージダイアログを表示する共通ヘルパー
-    /// （SS設計書 4.4「ダイアログ文言一覧」に記載の各文言表示に使用）。
-    private func presentAlert(message: String) {
-        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
     }
 
     /// SS設計書 4.3.2／4.3.3「正常終了：『接続成功』をボタンなしで1秒間表示した後、

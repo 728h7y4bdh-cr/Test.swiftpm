@@ -2,7 +2,7 @@ import UIKit
 
 /// データ受信画面（SS設計書 6章「データ受信画面仕様」 / UI設計書 7章「データ受信画面」）。
 /// 要件定義書 11.4「データ受信画面」に対応する画面。Bluetooth接続画面の「待受開始」成功後（Peripheral役）に遷移してくる。
-final class ReceiveViewController: UIViewController {
+final class ReceiveViewController: CommunicationBaseViewController {
     // UI設計書 7.2「部品一覧」：受信データの小項目3つ（送信元ID／送信先ID／データ）と「受信再開」ボタン
     private let sourceIdValueLabel = UILabel()
     private let destIdValueLabel = UILabel()
@@ -14,8 +14,6 @@ final class ReceiveViewController: UIViewController {
     /// 上記タイマー発火時、表示中のダイアログが「まだこの不正データダイアログのままか」を確認するための弱参照。
     /// 「受信検出あり」等の別イベントで既にダイアログが切り替わっていた場合に誤って割り込まないためのガード。
     private weak var currentInvalidDataAlert: UIAlertController?
-    /// 「戻る」処理・想定外切断処理が二重に走らないようにするフラグ
-    private var isStopping = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -128,8 +126,8 @@ final class ReceiveViewController: UIViewController {
     ///   2. Bluetooth通信切断処理（PS設計書 6.4）を実行する
     ///   3. 1つ前の画面（Bluetooth接続画面）へ遷移する
     @objc private func didTapBack() {
-        guard !isStopping else { return }
-        isStopping = true
+        // 予期しない切断の処理と同時に走らないよう、CommunicationBaseViewController共通の排他制御に参加する
+        guard beginHandlingCommunicationEnd() else { return }
         invalidDataRevertTimer?.invalidate()
         invalidDataRevertTimer = nil
         currentInvalidDataAlert = nil
@@ -242,35 +240,15 @@ extension ReceiveViewController: BluetoothManagerReceiveDelegate {
     }
 }
 
-// MARK: - BluetoothManagerConnectionDelegate（SS設計書 6.6「予期しない切断時の仕様」）
+// MARK: - CommunicationBaseViewController（SS設計書 6.6「予期しない切断時の仕様」）
 
-extension ReceiveViewController: BluetoothManagerConnectionDelegate {
-    func bluetoothManagerDidDisconnectUnexpectedly(_ manager: BluetoothManager) {
-        guard !isStopping else { return }
-        isStopping = true
+extension ReceiveViewController {
+    /// 予期しない切断検知時、表示中のダイアログ用タイマー・参照をクリアする
+    /// （不正データダイアログの5秒タイマーが後から誤発火しないようにするため）。
+    /// ダイアログ表示〜画面遷移までの共通フローは`CommunicationBaseViewController`側が行う。
+    override func willHandleUnexpectedDisconnect() {
         invalidDataRevertTimer?.invalidate()
         invalidDataRevertTimer = nil
         currentInvalidDataAlert = nil
-
-        let showAlertThenPop: () -> Void = { [weak self] in
-            guard let self else { return }
-            // Step 2: 切断ダイアログを表示する
-            let alert = UIAlertController(
-                title: nil, message: "Bluetooth通信が切断されました。再接続してください", preferredStyle: .alert
-            )
-            alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
-                // Step 3: OKタップ後、Bluetooth接続画面へ遷移する
-                // （Bluetooth通信切断処理はBluetoothManager側で完了済みのため、ここでは遷移のみでよい）
-                self?.navigationController?.popViewController(animated: true)
-            })
-            self.present(alert, animated: true)
-        }
-
-        // Step 1: 表示中のダイアログ（受信中／データ受信完了／不正データ等）があれば閉じる
-        if let presented = presentedViewController {
-            presented.dismiss(animated: true, completion: showAlertThenPop)
-        } else {
-            showAlertThenPop()
-        }
     }
 }

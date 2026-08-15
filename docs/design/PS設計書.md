@@ -7,6 +7,7 @@
 | 1.0 | 2026-08-13 | 初版作成 |
 | 1.1 | 2026-08-14 | 6.2/6.3のタイムアウトを30秒→60秒に変更（処理開始＝ボタン押下の瞬間から起算するよう修正）。初期化処理（6.1）を`AppInitializer`、通信切断処理（6.4）を`Disconnector`として機能単位化し、1章・8章・6.1・6.4に反映。「切断処理」章番号の誤記（7章）を6.4節へ修正 |
 | 1.2 | 2026-08-15 | 8章のクラス構成表で`DataSender`行が重複していたのを修正（1行に統合） |
+| 1.3 | 2026-08-15 | Bluetooth通信に関わる画面の共通処理を`CommunicationBaseViewController`に集約。1章・8章に反映 |
 
 ## 0. 本書について
 
@@ -30,9 +31,13 @@
 flowchart TB
     subgraph View層
         VC1["TopViewController"]
+        CBV["CommunicationBaseViewController<br/>（共通処理の基底クラス）"]
         VC2["ConnectionViewController"]
         VC3["SendViewController"]
         VC4["ReceiveViewController"]
+        CBV --継承--> VC2
+        CBV --継承--> VC3
+        CBV --継承--> VC4
     end
 
     AD["AppDelegate"]
@@ -90,6 +95,7 @@ flowchart TB
 | `DataSender` | データ送信処理（6.5）専用。`BluetoothCentralSession`を介してデータを送信する |
 | `DataReceiver` | データ受信処理（6.6）専用。`BluetoothPeripheralSession`のWrite受信窓口を介してデータチェックを行う |
 | `BluetoothManager` | 上記の役割/機能クラスを、現在の役割（Central/Peripheral）に応じて生成・接続・破棄するだけの調停役（Coordinator）。4章のペイロードフォーマットの意味は持たない |
+| `CommunicationBaseViewController` | Bluetooth通信に関わる画面（`ConnectionViewController`／`SendViewController`／`ReceiveViewController`）が共通で継承する基底クラス。単純なメッセージダイアログ表示（`presentAlert(message:)`）と、予期しない切断検知時の共通フロー（要件定義書12.2）を集約する |
 | 各`ViewController` | 画面表示・ユーザー操作の受付・`BluetoothManager`/`AppParameters`の呼び出し |
 
 ## 2. 内部パラメータ
@@ -400,6 +406,7 @@ sequenceDiagram
 | `DataSender` | class | データ送信処理（6.5）専用の機能レイヤークラス |
 | `DataReceiver` | class | データ受信処理（6.6）専用の機能レイヤークラス |
 | `BluetoothManager` | class | 役割/機能レイヤーの各クラスを、現在の役割（Central/Peripheral）に応じて生成・接続・破棄するだけの調停役（Coordinator）。4章のペイロードフォーマットの意味は持たず、通信開始処理／待受開始処理／通信切断処理／データ送信処理／データ受信処理の公開APIを提供する |
+| `CommunicationBaseViewController` | class | Bluetooth通信に関わる画面が共通で継承する基底クラス。単純なメッセージダイアログ表示、予期しない切断検知時の共通フロー（要件定義書12.2）を集約する（`BluetoothManagerConnectionDelegate`実装） |
 
 ## 9. 用語集
 
