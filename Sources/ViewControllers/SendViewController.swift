@@ -87,6 +87,8 @@ final class SendViewController: CommunicationBaseViewController {
             presentAlert(message: "データ送信中は画面の切り替えができません")
             return
         }
+        // 予期しない切断の処理と同時に走らないよう、CommunicationBaseViewController共通の排他制御に参加する
+        guard beginHandlingCommunicationEnd() else { return }
         // SS設計書 5.3「処理中でない場合：Bluetooth通信切断処理（PS設計書 6.4）を実行完了後、1つ前の画面へ遷移する」
         BluetoothManager.shared.disconnect { [weak self] in
             self?.navigationController?.popViewController(animated: true)
