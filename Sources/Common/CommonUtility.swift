@@ -16,8 +16,12 @@ enum CommonUtility {
     /// （Releaseビルドでは無視され、クラッシュしない）。
     /// 各所で個別に`assertionFailure`を呼ぶ代わりにここを経由することで、
     /// アサートのメッセージ体裁を揃え、将来的な検知方法の変更（ログ送信の追加等）を1箇所に閉じ込める。
-    static func assert(_ condition: Bool, _ message: @autoclosure () -> String) {
-        guard !condition else { return }
+    ///
+    /// `condition`・`message`ともに`@autoclosure`にしているのは、Swift標準の`assert`と同様、
+    /// Releaseビルドでは呼び出し元の式が一切評価されないようにするため（重い判定処理を渡しても、
+    /// 本番では評価コストがかからない）。
+    static func assert(_ condition: @autoclosure () -> Bool, _ message: @autoclosure () -> String) {
+        guard !condition() else { return }
         assertionFailure(message())
     }
 }
