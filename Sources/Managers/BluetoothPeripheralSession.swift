@@ -67,7 +67,7 @@ final class BluetoothPeripheralSession: NSObject {
     }
 
     private func beginAdvertisingIfReady() {
-        print("[TEMP-LOG] beginAdvertisingIfReady: isAdvertiseRequested=\(isAdvertiseRequested), state=\(String(describing: peripheralManager?.state.rawValue))") // TEMP-LOG
+        TempLogStore.append("beginAdvertisingIfReady: isAdvertiseRequested=\(isAdvertiseRequested), state=\(String(describing: peripheralManager?.state.rawValue))") // TEMP-LOG
         guard isAdvertiseRequested, let peripheralManager, peripheralManager.state == .poweredOn else { return }
         isAdvertiseRequested = false
 
@@ -98,7 +98,7 @@ final class BluetoothPeripheralSession: NSObject {
 
 extension BluetoothPeripheralSession: CBPeripheralManagerDelegate {
     func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
-        print("[TEMP-LOG] peripheralManagerDidUpdateState: \(peripheral.state.rawValue)") // TEMP-LOG
+        TempLogStore.append("peripheralManagerDidUpdateState: \(peripheral.state.rawValue)") // TEMP-LOG
         switch peripheral.state {
         case .poweredOn:
             beginAdvertisingIfReady()
@@ -112,23 +112,23 @@ extension BluetoothPeripheralSession: CBPeripheralManagerDelegate {
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
-        print("[TEMP-LOG] didAdd service: error=\(String(describing: error))") // TEMP-LOG
+        TempLogStore.append("didAdd service: error=\(String(describing: error))") // TEMP-LOG
         guard error == nil else {
             onFailure?()
             return
         }
         peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey: [BluetoothGATT.serviceUUID]])
-        print("[TEMP-LOG] startAdvertising called") // TEMP-LOG
+        TempLogStore.append("startAdvertising called") // TEMP-LOG
         onReady?()
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didUnsubscribeFrom characteristic: CBCharacteristic) {
-        print("[TEMP-LOG] didUnsubscribeFrom called -> onFailure") // TEMP-LOG
+        TempLogStore.append("didUnsubscribeFrom called -> onFailure") // TEMP-LOG
         onFailure?()
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
-        print("[TEMP-LOG] didReceiveWrite: \(requests.count) request(s)") // TEMP-LOG
+        TempLogStore.append("didReceiveWrite: \(requests.count) request(s)") // TEMP-LOG
         for request in requests {
             // 受信したことのACKは内容の正当性に関わらず常に返し、内容の解釈は上位（onWriteReceived）に委ねる
             peripheral.respond(to: request, withResult: .success)

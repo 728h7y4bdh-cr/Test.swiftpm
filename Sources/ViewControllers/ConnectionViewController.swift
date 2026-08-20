@@ -11,6 +11,10 @@ final class ConnectionViewController: CommunicationBaseViewController {
     /// 入力欄・ボタンをまとめたコンテナ。Bluetooth使用許可が下りるまで非表示にする（SS設計書 4.1）
     private let inputContainer = UIStackView()
 
+    // TEMP-LOG: 「接続中」スタック問題の調査用。Mac/Xcode無しでも画面上で直接ログを確認するための表示エリア。
+    // 原因判明後、このプロパティ・関連コードを含めて削除すること。
+    private let tempLogTextView = UITextView() // TEMP-LOG
+
     private let authorizationChecker = BluetoothAuthorizationChecker()
     /// SS設計書 4.1「不許可」ダイアログを二重に表示しないための状態フラグ
     private var isPermissionDeniedAlertPresented = false
@@ -25,6 +29,8 @@ final class ConnectionViewController: CommunicationBaseViewController {
         setUpInputUI()
         // 許可確認が完了するまでは入力項目・ボタンを隠しておく（SS設計書 4.1 No.2「許可」時に表示する）
         inputContainer.isHidden = true
+
+        setUpTempLogUI() // TEMP-LOG
 
         #if DEBUG
         // デバッグ機能：TOP画面からBluetooth接続画面へ遷移した最初のタイミングで、
@@ -76,6 +82,32 @@ final class ConnectionViewController: CommunicationBaseViewController {
             inputContainer.centerYAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerYAnchor)
         ])
     }
+
+    // TEMP-LOG: 「接続中」スタック問題の調査用UI。原因判明後、このメソッドごと削除すること。
+    /// `TempLogStore`に追記されたログを、入力欄の下に選択・コピー可能なテキストとして表示する。
+    private func setUpTempLogUI() { // TEMP-LOG
+        tempLogTextView.isEditable = false // TEMP-LOG
+        tempLogTextView.font = .monospacedSystemFont(ofSize: 11, weight: .regular) // TEMP-LOG
+        tempLogTextView.backgroundColor = .secondarySystemBackground // TEMP-LOG
+        tempLogTextView.translatesAutoresizingMaskIntoConstraints = false // TEMP-LOG
+        view.addSubview(tempLogTextView) // TEMP-LOG
+
+        NSLayoutConstraint.activate([ // TEMP-LOG
+            tempLogTextView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 8), // TEMP-LOG
+            tempLogTextView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -8), // TEMP-LOG
+            tempLogTextView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8), // TEMP-LOG
+            tempLogTextView.heightAnchor.constraint(equalToConstant: 240) // TEMP-LOG
+        ]) // TEMP-LOG
+
+        TempLogStore.onAppend = { [weak self] in // TEMP-LOG
+            DispatchQueue.main.async { // TEMP-LOG
+                guard let self else { return } // TEMP-LOG
+                self.tempLogTextView.text = TempLogStore.text // TEMP-LOG
+                let bottom = NSRange(location: self.tempLogTextView.text.count, length: 0) // TEMP-LOG
+                self.tempLogTextView.scrollRangeToVisible(bottom) // TEMP-LOG
+            } // TEMP-LOG
+        } // TEMP-LOG
+    } // TEMP-LOG
 
     /// 自端末ID／接続先ID共通の「タイトルラベル＋入力欄」の行を構築する。
     /// SS設計書 4.2「入力可能文字は半角数値のみ」に合わせ、数値専用キーボードを指定する
