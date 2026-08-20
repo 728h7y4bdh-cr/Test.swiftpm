@@ -120,11 +120,9 @@ final class SendViewController: CommunicationBaseViewController {
             }
         }
     }
-}
 
-// MARK: - CommunicationBaseViewController（SS設計書 5.6「予期しない切断時の仕様」）
+    // MARK: - CommunicationBaseViewController（SS設計書 5.6「予期しない切断時の仕様」）
 
-extension SendViewController {
     /// 予期しない切断検知時、送信処理が進行中であれば中断する（「データ送信中」表示を残さない）。
     /// ダイアログ表示〜画面遷移までの共通フローは`CommunicationBaseViewController`側が行う。
     override func willHandleUnexpectedDisconnect() {
