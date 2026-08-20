@@ -169,17 +169,6 @@ final class ReceiveViewController: CommunicationBaseViewController {
             showAlert()
         }
     }
-
-    // MARK: - CommunicationBaseViewController（SS設計書 6.6「予期しない切断時の仕様」）
-
-    /// 予期しない切断検知時、表示中のダイアログ用タイマー・参照をクリアする
-    /// （不正データダイアログの5秒タイマーが後から誤発火しないようにするため）。
-    /// ダイアログ表示〜画面遷移までの共通フローは`CommunicationBaseViewController`側が行う。
-    override func willHandleUnexpectedDisconnect() {
-        invalidDataRevertTimer?.invalidate()
-        invalidDataRevertTimer = nil
-        currentInvalidDataAlert = nil
-    }
 }
 
 // MARK: - BluetoothManagerReceiveDelegate（PS設計書 6.6「データ受信処理」の結果通知）
@@ -248,5 +237,18 @@ extension ReceiveViewController: BluetoothManagerReceiveDelegate {
         } else {
             showInvalidDataAlert()
         }
+    }
+}
+
+// MARK: - CommunicationBaseViewController（SS設計書 6.6「予期しない切断時の仕様」）
+
+extension ReceiveViewController {
+    /// 予期しない切断検知時、表示中のダイアログ用タイマー・参照をクリアする
+    /// （不正データダイアログの5秒タイマーが後から誤発火しないようにするため）。
+    /// ダイアログ表示〜画面遷移までの共通フローは`CommunicationBaseViewController`側が行う。
+    override func willHandleUnexpectedDisconnect() {
+        invalidDataRevertTimer?.invalidate()
+        invalidDataRevertTimer = nil
+        currentInvalidDataAlert = nil
     }
 }
