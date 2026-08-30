@@ -67,6 +67,20 @@ final class DataReceiver {
             onNotDetect?()
             return
         }
+
+        // PS設計書 6.6「検出時送信データ」：送信種別0x92固定・通信種別0x02、
+        // 送信元ID＝自端末ID、送信先ID＝受信データの送信元ID、入力データ＝0x20埋め、を1回送信する。
+        // 送信側（DataSender）はこの応答を検出できるかどうかで送信成功/失敗を判定するため、
+        // 受信側が実際に受信中でなければ（＝この関数自体が呼ばれなければ）応答は返らず、
+        // 送信側はタイムアウトにより送信失敗として扱う。
+        let responsePayload = Payload(
+            payloadType: .response,
+            communicationType: .data,
+            sourceID: myID,
+            destinationID: payload.sourceID,
+            inputData: PayloadCodec.blankInputData
+        )
+        session.notify(PayloadCodec.encode(responsePayload)) { _ in }
         onDetect?(payload)
     }
 }

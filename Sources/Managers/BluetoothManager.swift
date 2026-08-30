@@ -54,6 +54,10 @@ final class BluetoothManager {
     /// 後続処理（要求送信・タイムアウト時の異常終了通知）が一切実行されなくなる。
     private var connectionStartHandshake: ConnectionStartHandshake?
     private var listenStartHandshake: ListenStartHandshake?
+    /// `connectionStartHandshake`等と同じ理由（R-01）で、処理完了まで保持する。
+    /// `DataSender`が応答待ち（`session.onResponseReceived`・タイムアウトタイマー）を持つように
+    /// なったため、保持しないと同じ問題が再発する。
+    private var dataSender: DataSender?
 
     /// Central役の切断要求(`cancelPeripheralConnection`)を出したが、実際の切断完了が
     /// まだCore Bluetoothから通知されていない間、`true`になる（R-04対応）。
@@ -164,6 +168,7 @@ final class BluetoothManager {
         // 処理途中で切断された場合に備えてここでも明示的に解放する
         connectionStartHandshake = nil
         listenStartHandshake = nil
+        dataSender = nil
         role = .none
 
         // Central役の接続中セッションがあった場合のみ、実際の切断完了を待つ対象とする
@@ -197,8 +202,11 @@ final class BluetoothManager {
             completion(false)
             return
         }
-        DataSender(session: session).send(myID: myID, targetID: targetID, text: text) { [weak self] success in
+        let sender = DataSender(session: session)
+        self.dataSender = sender
+        sender.send(myID: myID, targetID: targetID, text: text) { [weak self] success in
             guard let self else { return }
+            self.dataSender = nil
             if success {
                 completion(true)
             } else {
