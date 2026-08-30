@@ -5,6 +5,8 @@
 | 版数 | 日付 | 内容 |
 |---|---|---|
 | 1.0 | 2026-08-13 | 初版作成 |
+| 1.1 | 2026-08-23 | 7章「受信中」をダイアログ（`alertReceiving`）から画面内表示（`lblStatus`）に変更（「戻る」ボタン操作を妨げないため） |
+| 1.2 | 2026-08-23 | 4章`lblTitle`の表示文字列を「Sample App」から「Sample App for BlueCom」（2行・書体強弱付き）に変更 |
 
 ## 0. 本書について
 
@@ -16,6 +18,7 @@
 |---|---|
 | 使用部品 | UIKit標準部品のみを使用し、サードパーティのUIライブラリには依存しない |
 | レイアウト | Auto Layout（`NSLayoutConstraint` / `UIStackView`）を用い、iPad・iPhoneの画面サイズ差、および画面回転に対応する |
+| 画面回転・マルチタスク | iPadのマルチタスク機能（Slide Over／Split View）に対応するため、縦向き・逆さ縦向き・横向き（左右）の4方向すべての画面回転をサポートする（マルチタスクを禁止するフルスクリーン専有モードは採用しない） |
 | 配色・フォント | OS標準のシステムカラー（`UIColor.systemBackground`等）・システムフォント（`UIFont.preferredFont(forTextStyle:)`）を使用し、ライトモード／ダークモード双方に対応する |
 | ダイアログ | すべて`UIAlertController`（`.alert`スタイル）を使用する |
 | ナビゲーション | `UINavigationController`によるpush/pop遷移を基本とする（TOP画面→Bluetooth接続画面は自動遷移のため`setViewControllers`等で置き換える） |
@@ -50,7 +53,7 @@ flowchart LR
 │                                │
 │                                │
 │           Sample App          │
-│                                │
+│       FOR BLUECOM             │
 │                                │
 │                                │
 └──────────────────────────────┘
@@ -60,7 +63,7 @@ flowchart LR
 
 | 部品ID | 種別 | 内容 | 配置 |
 |---|---|---|---|
-| `lblTitle` | `UILabel` | "Sample App" | 画面中央（水平・垂直中央揃え） |
+| `lblTitle` | `UILabel`（属性付き文字列、2行） | 1行目"Sample App"（40pt・`.heavy`・`.systemBlue`）／2行目"FOR BLUECOM"（14pt・`.semibold`・`.secondaryLabel`・字間2.5pt） | 画面中央（水平・垂直中央揃え） |
 
 ## 5. Bluetooth接続画面
 
@@ -156,6 +159,7 @@ flowchart LR
 ├──────────────────────────────┤
 │                                │
 │  受信データ                    │
+│    受信中                      │
 │    送信元ID   [        ]      │
 │    送信先ID   [        ]      │
 │    データ     [        ]      │
@@ -165,19 +169,8 @@ flowchart LR
 └──────────────────────────────┘
 ```
 
-「受信中」ダイアログ表示中（前面）:
-
-```
-┌──────────────────────────────┐
-│ [戻る]  データ受信            │
-├──────────────────────────────┤   ┌───────────────┐
-│  受信データ                    │   │              │
-│    送信元ID   [        ]      │   │   受信中      │
-│    送信先ID   [        ]      │   │              │
-│    データ     [        ]      │   └───────────────┘
-│                                │
-└──────────────────────────────┘
-```
+「受信中」は画面内の固定表示であり、ダイアログではない（「戻る」ボタン操作を妨げないため）。
+「データ受信完了」「データを受信しましたが、不正データでした。」表示中は、引き続き画面前面モーダルのダイアログを使用する（7.2節参照）。
 
 ### 7.2 部品一覧
 
@@ -185,6 +178,7 @@ flowchart LR
 |---|---|---|---|---|
 | `btnBack` | `UIBarButtonItem`（`UINavigationBar`左） | "戻る" | ナビゲーションバー左 | 常時表示 |
 | `lblReceiveDataTitle` | `UILabel`（大項目） | "受信データ" | 上段 | 表示 |
+| `lblStatus` | `UILabel` | "受信中" | 上段（大項目の下） | 受信処理実行中のみ表示。ダイアログではないため、表示中も「戻る」ボタンの操作は可能 |
 | `lblSourceIdTitle` | `UILabel`（小項目ラベル） | "送信元ID" | 中段左 | 表示 |
 | `lblSourceIdValue` | `UILabel` | 受信データの送信元ID | 中段右 | 空欄 |
 | `lblDestIdTitle` | `UILabel`（小項目ラベル） | "送信先ID" | 中段左 | 表示 |
@@ -192,7 +186,6 @@ flowchart LR
 | `lblDataTitle` | `UILabel`（小項目ラベル） | "データ" | 中段左 | 表示 |
 | `lblDataValue` | `UILabel` | 受信データの入力データ | 中段右 | 空欄 |
 | `btnResume` | `UIButton`（`.filled`スタイル） | "受信再開" | 下段中央 | 非表示（受信検出後に表示。ダイアログ表示中は操作不可） |
-| （ダイアログ）`alertReceiving` | `UIAlertController`（ボタンなし） | "受信中" | 画面前面モーダル | 画面遷移直後に表示 |
 | （ダイアログ）`alertReceiveComplete` | `UIAlertController`（OKボタンあり） | "データ受信完了" | 画面前面モーダル | 受信検出あり時に表示。表示時点で背面は受信データ表示・「受信再開」ボタン表示済み。表示中は背面の「受信再開」「戻る」ボタン操作不可 |
 | （ダイアログ）`alertInvalidData` | `UIAlertController`（OKボタンあり） | "データを受信しましたが、不正データでした。" | 画面前面モーダル | 受信検出なし時に表示。表示中は背面の「戻る」ボタン操作不可。OK未操作のまま5秒経過で「受信中」表示に戻る |
 
