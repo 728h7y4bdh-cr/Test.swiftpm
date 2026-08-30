@@ -18,13 +18,16 @@ final class TopViewController: UIViewController {
         }
     }
 
-    /// SS設計書 3章「表示内容」：画面中央に文字列「Sample App」を表示する
-    /// （要件定義書 11.1：「画面中央に『Sample App』の文字を表示する」）。
+    /// SS設計書 3章「表示内容」：画面中央に文字列「Sample App for BlueCom」を表示する
+    /// （要件定義書 11.1：「画面中央に『Sample App for BlueCom』の文字を表示する」）。
+    /// 見た目のアクセントとして、メインタイトルとサブタイトルで書体・サイズ・色に強弱をつける
+    /// （UI設計書 4.2「lblTitle」参照。表示する文字列自体は1本のラベルにまとめている）。
     private func setUpTitleLabel() {
         let label = UILabel()
-        label.text = "Sample App"
-        label.font = UIFont.preferredFont(forTextStyle: .largeTitle)
+        label.attributedText = makeTitleAttributedString()
+        label.numberOfLines = 0
         label.textAlignment = .center
+        label.accessibilityLabel = "Sample App for BlueCom"
         label.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(label)
 
@@ -34,6 +37,31 @@ final class TopViewController: UIViewController {
             label.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
             label.trailingAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16)
         ])
+    }
+
+    private func makeTitleAttributedString() -> NSAttributedString {
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
+        paragraphStyle.lineSpacing = 8
+
+        let result = NSMutableAttributedString(
+            string: "Sample App\n",
+            attributes: [
+                .font: UIFont.systemFont(ofSize: 40, weight: .heavy),
+                .foregroundColor: UIColor.systemBlue,
+                .paragraphStyle: paragraphStyle
+            ]
+        )
+        result.append(NSAttributedString(
+            string: "FOR BLUECOM",
+            attributes: [
+                .font: UIFont.systemFont(ofSize: 14, weight: .semibold),
+                .foregroundColor: UIColor.secondaryLabel,
+                .kern: 2.5,
+                .paragraphStyle: paragraphStyle
+            ]
+        ))
+        return result
     }
 
     /// Bluetooth接続画面へ遷移する。TOP画面へは戻らせない仕様のため、pushではなく

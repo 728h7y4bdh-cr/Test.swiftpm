@@ -6,6 +6,7 @@
 |---|---|---|
 | 1.0 | 2026-08-13 | 初版作成 |
 | 1.1 | 2026-08-23 | 7章「受信中」をダイアログ（`alertReceiving`）から画面内表示（`lblStatus`）に変更（「戻る」ボタン操作を妨げないため） |
+| 1.2 | 2026-08-23 | 4章`lblTitle`の表示文字列を「Sample App」から「Sample App for BlueCom」（2行・書体強弱付き）に変更 |
 
 ## 0. 本書について
 
@@ -52,7 +53,7 @@ flowchart LR
 │                                │
 │                                │
 │           Sample App          │
-│                                │
+│       FOR BLUECOM             │
 │                                │
 │                                │
 └──────────────────────────────┘
@@ -62,7 +63,7 @@ flowchart LR
 
 | 部品ID | 種別 | 内容 | 配置 |
 |---|---|---|---|
-| `lblTitle` | `UILabel` | "Sample App" | 画面中央（水平・垂直中央揃え） |
+| `lblTitle` | `UILabel`（属性付き文字列、2行） | 1行目"Sample App"（40pt・`.heavy`・`.systemBlue`）／2行目"FOR BLUECOM"（14pt・`.semibold`・`.secondaryLabel`・字間2.5pt） | 画面中央（水平・垂直中央揃え） |
 
 ## 5. Bluetooth接続画面
 
