@@ -8,6 +8,9 @@ final class ReceiveViewController: CommunicationBaseViewController {
     private let destIdValueLabel = UILabel()
     private let dataValueLabel = UILabel()
     private let resumeButton = UIButton(configuration: .filled())
+    /// 「受信中」の状態表示。SS設計書6.5 No.1はダイアログではなく画面内表示とする
+    /// （ダイアログにすると背面の「戻る」ボタン操作が塞がれてしまうため）。
+    private let statusLabel = UILabel()
 
     /// SS設計書 6.5 No.3「OKボタンが操作されないまま5秒経過した場合、ダイアログの表示を『受信中』に戻す」用のタイマー
     private var invalidDataRevertTimer: Timer?
@@ -68,7 +71,11 @@ final class ReceiveViewController: CommunicationBaseViewController {
         // 「受信再開」ボタンは受信検出あり（SS設計書 6.2 No.2）が起きるまで非表示
         resumeButton.isHidden = true
 
-        let stack = UIStackView(arrangedSubviews: [receiveDataTitleLabel, sourceRow, destRow, dataRow, resumeButton])
+        statusLabel.font = UIFont.preferredFont(forTextStyle: .subheadline)
+        statusLabel.textColor = .secondaryLabel
+        statusLabel.isHidden = true
+
+        let stack = UIStackView(arrangedSubviews: [receiveDataTitleLabel, statusLabel, sourceRow, destRow, dataRow, resumeButton])
         stack.axis = .vertical
         stack.spacing = 20
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -94,23 +101,25 @@ final class ReceiveViewController: CommunicationBaseViewController {
 
     // MARK: - 受信処理の開始（SS設計書 6.2「画面遷移直後の処理フロー」）
 
-    /// SS設計書 6.2「『受信中』ダイアログを表示後、データ受信処理を開始する」。
+    /// SS設計書 6.2「『受信中』を画面内に表示後、データ受信処理を開始する」。
     /// 画面遷移直後（viewDidAppear）と、「受信再開」ボタン押下時（didTapResume）の
     /// 2箇所から呼ばれる共通処理。
     private func beginReceiving() {
-        presentReceivingAlert()
+        showReceivingStatus()
         BluetoothManager.shared.startReceiving() // PS設計書 6.6「データ受信処理」開始
     }
 
-    /// SS設計書 6.5 No.1「受信中：ダイアログを表示する（OKボタンなし・表示固定）」を表示する。
+    /// SS設計書 6.5 No.1「受信中：画面内に固定表示する（表示固定。ダイアログにはしない）」。
+    /// ダイアログにすると背面画面全体（「戻る」ボタンを含む）の操作が塞がれてしまうため、
+    /// 他のダイアログ（データ受信完了／不正データでした）とは異なり画面内表示とする。
     /// 呼び出し前に、不正データ用の再表示タイマー・ダイアログ参照をクリアしておく
     /// （不正データダイアログの5秒タイマーが後から誤発火しないようにするため）。
-    private func presentReceivingAlert() {
+    private func showReceivingStatus() {
         invalidDataRevertTimer?.invalidate()
         invalidDataRevertTimer = nil
         currentInvalidDataAlert = nil
-        let alert = UIAlertController(title: nil, message: "受信中", preferredStyle: .alert)
-        present(alert, animated: true)
+        statusLabel.text = "受信中"
+        statusLabel.isHidden = false
     }
 
     /// SS設計書 6.3「『受信再開』ボタン仕様：タップするとデータ受信処理を再度開始する」
@@ -204,6 +213,8 @@ extension ReceiveViewController: BluetoothManagerReceiveDelegate {
             self.destIdValueLabel.text = payload.destinationID
             self.dataValueLabel.text = payload.inputDataText
             self.resumeButton.isHidden = false
+            // 受信処理が停止した（「受信再開」待ちになった）ため、「受信中」表示は隠す
+            self.statusLabel.isHidden = true
 
             self.presentDetectionAlert(message: "データ受信完了", okHandler: {})
         }
@@ -224,7 +235,7 @@ extension ReceiveViewController: BluetoothManagerReceiveDelegate {
             alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
                 self?.invalidDataRevertTimer?.invalidate()
                 self?.invalidDataRevertTimer = nil
-                self?.presentReceivingAlert()
+                self?.showReceivingStatus()
             })
             self.currentInvalidDataAlert = alert
             self.present(alert, animated: true)
@@ -238,7 +249,7 @@ extension ReceiveViewController: BluetoothManagerReceiveDelegate {
                 guard let self, let alert, self.currentInvalidDataAlert === alert,
                       self.presentedViewController === alert else { return }
                 alert.dismiss(animated: true) {
-                    self.presentReceivingAlert()
+                    self.showReceivingStatus()
                 }
             }
         }

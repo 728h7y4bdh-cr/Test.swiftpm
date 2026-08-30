@@ -27,6 +27,10 @@ final class ConnectionViewController: CommunicationBaseViewController {
         view.backgroundColor = .systemBackground
         navigationItem.hidesBackButton = true
         setUpInputUI()
+        // 入力欄フォーカス中に画面の余白をタップしたらキーボードを閉じる
+        let dismissKeyboardGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        dismissKeyboardGesture.cancelsTouchesInView = false
+        view.addGestureRecognizer(dismissKeyboardGesture)
         // 許可確認が完了するまでは入力項目・ボタンを隠しておく（SS設計書 4.1 No.2「許可」時に表示する）
         inputContainer.isHidden = true
 
@@ -108,6 +112,11 @@ final class ConnectionViewController: CommunicationBaseViewController {
             } // TEMP-LOG
         } // TEMP-LOG
     } // TEMP-LOG
+
+    /// 画面の余白タップ時にキーボードを閉じる（入力欄のフォーカスを外す）。
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
+    }
 
     /// 自端末ID／接続先ID共通の「タイトルラベル＋入力欄」の行を構築する。
     /// SS設計書 4.2「入力可能文字は半角数値のみ」に合わせ、数値専用キーボードを指定する
@@ -214,8 +223,11 @@ final class ConnectionViewController: CommunicationBaseViewController {
         targetIdTextField.text = targetID
 
         isProcessing = true
-        // SS設計書 4.3.2／4.3.3「処理中は『接続中』を表示する」
+        // SS設計書 4.3.2／4.3.3「処理中は『接続中』を表示する（キャンセルボタン付き）」
         let processingAlert = UIAlertController(title: nil, message: "接続中", preferredStyle: .alert)
+        processingAlert.addAction(UIAlertAction(title: "キャンセル", style: .cancel) { [weak self] _ in
+            self?.cancelHandshake()
+        })
         present(processingAlert, animated: true)
 
         startOperation(myID, targetID) { [weak self] success in
@@ -230,6 +242,18 @@ final class ConnectionViewController: CommunicationBaseViewController {
                     self.presentAlert(message: "該当する端末がありませんでした")
                 }
             }
+        }
+    }
+
+    /// 「接続中」ダイアログの「キャンセル」ボタン仕様（SS設計書 4.3.2／4.3.3）。
+    /// 進行中のBluetooth通信開始/待受処理をハンドシェイクごと破棄し、「キャンセル中」表示に
+    /// 切り替えたうえで、実際の切断が完了次第ダイアログを閉じる。
+    private func cancelHandshake() {
+        let cancellingAlert = UIAlertController(title: nil, message: "キャンセル中", preferredStyle: .alert)
+        present(cancellingAlert, animated: true)
+        BluetoothManager.shared.disconnect { [weak self] in
+            self?.isProcessing = false
+            cancellingAlert.dismiss(animated: true)
         }
     }
 
