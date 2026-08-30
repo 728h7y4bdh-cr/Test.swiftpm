@@ -47,8 +47,9 @@ struct Payload {
     /// 入力データ（10byte）。用途別の内容はPS設計書 4.5「入力データ領域の用途別内容」を参照
     let inputData: Data
 
-    /// 入力データ領域を、末尾の0x20（半角スペース）パディングを取り除いた文字列として取得する。
-    /// データ受信処理（PS設計書 9章 / 6.6）で受信データが"YAMA"／"KAWA"かどうかを判定する際などに使用する。
+    /// 入力データ領域を、前後の0x20（半角スペース）パディングを取り除いた文字列として取得する。
+    /// データ受信画面での表示用途にのみ使用する（受信データの正当性判定は、バイト列同士の
+    /// 直接比較で行うため、この変換後の文字列は判定には使用しない）。
     var inputDataText: String {
         let text = String(data: inputData, encoding: .ascii) ?? ""
         return text.trimmingCharacters(in: CharacterSet(charactersIn: " "))

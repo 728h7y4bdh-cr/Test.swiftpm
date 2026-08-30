@@ -86,11 +86,12 @@ final class ConnectionStartHandshake {
             TempLogStore.append("handleResponse: decode failed, \(data.count) bytes") // TEMP-LOG
             return
         }
-        TempLogStore.append("handleResponse: payloadType=\(payload.payloadType), communicationType=\(payload.communicationType), sourceID=\(payload.sourceID), destinationID=\(payload.destinationID) (expected sourceID=\(targetID), destinationID=\(myID))") // TEMP-LOG
+        TempLogStore.append("handleResponse: payloadType=\(payload.payloadType), communicationType=\(payload.communicationType), sourceID=\(payload.sourceID), destinationID=\(payload.destinationID), inputDataIsBlank=\(payload.inputData == PayloadCodec.blankInputData) (expected sourceID=\(targetID), destinationID=\(myID))") // TEMP-LOG
         // PS設計書 6.2「待受内容」：送信種別0x92固定・通信種別0x01、
         // 送信元ID＝送信時の送信先ID、送信先ID＝送信時の送信元ID、入力データ＝0x20埋め
         guard payload.payloadType == .response, payload.communicationType == .connection,
-              payload.sourceID == targetID, payload.destinationID == myID else {
+              payload.sourceID == targetID, payload.destinationID == myID,
+              payload.inputData == PayloadCodec.blankInputData else {
             return // 不一致のデータは無視し、タイムアウトまで待ち続ける
         }
         finish(success: true)

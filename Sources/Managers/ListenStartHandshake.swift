@@ -57,11 +57,12 @@ final class ListenStartHandshake {
             TempLogStore.append("handleWrite: decode failed, \(data.count) bytes") // TEMP-LOG
             return
         }
-        TempLogStore.append("handleWrite: payloadType=\(payload.payloadType), communicationType=\(payload.communicationType), sourceID=\(payload.sourceID), destinationID=\(payload.destinationID) (expected sourceID=\(targetID), destinationID=\(myID))") // TEMP-LOG
+        TempLogStore.append("handleWrite: payloadType=\(payload.payloadType), communicationType=\(payload.communicationType), sourceID=\(payload.sourceID), destinationID=\(payload.destinationID), inputDataIsBlank=\(payload.inputData == PayloadCodec.blankInputData) (expected sourceID=\(targetID), destinationID=\(myID))") // TEMP-LOG
         // PS設計書 6.3「待受内容」：送信種別0x29固定・通信種別0x01、
         // 送信元ID＝接続先ID、送信先ID＝自端末ID、入力データ＝0x20埋め
         guard payload.payloadType == .request, payload.communicationType == .connection,
-              payload.sourceID == targetID, payload.destinationID == myID else {
+              payload.sourceID == targetID, payload.destinationID == myID,
+              payload.inputData == PayloadCodec.blankInputData else {
             return // 一致しない場合は無視し、タイムアウトまで待ち続ける
         }
 

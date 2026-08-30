@@ -11,8 +11,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(AppDelegate.self))
     }
 
-    var window: UIWindow?
-
     /// アプリ起動時に一度だけ呼ばれる。初期化処理（PS設計書 6.1、要件定義書 10章）を実行する。
     func application(
         _ application: UIApplication,

@@ -49,6 +49,11 @@ final class BluetoothManager {
     /// 待受開始成功後に受信処理を任せる先。生成は`startListening`時点で行うが、
     /// 実際に受信を開始するのは公開APIの`startReceiving()`が呼ばれた時点。
     private var dataReceiver: DataReceiver?
+    /// 処理完了（成功／失敗いずれか）まで保持する。保持しないと、非同期のCore Bluetooth
+    /// コールバック（`onReady`等）が発火する前にインスタンスが解放され、`[weak self]`経由の
+    /// 後続処理（要求送信・タイムアウト時の異常終了通知）が一切実行されなくなる。
+    private var connectionStartHandshake: ConnectionStartHandshake?
+    private var listenStartHandshake: ListenStartHandshake?
 
     // MARK: - Public: Bluetooth通信開始処理（PS設計書 6.2, Central役）
 
@@ -72,8 +77,11 @@ final class BluetoothManager {
             let session = BluetoothCentralSession()
             self.centralSession = session
 
-            ConnectionStartHandshake(session: session).start(myID: myID, targetID: targetID) { [weak self] success in
+            let handshake = ConnectionStartHandshake(session: session)
+            self.connectionStartHandshake = handshake
+            handshake.start(myID: myID, targetID: targetID) { [weak self] success in
                 guard let self else { return }
+                self.connectionStartHandshake = nil
                 if success {
                     // 通信開始処理の成功直後から、データ送信画面滞在中の予期しない切断を検知できるようにする
                     // （SS設計書 5.6「予期しない切断時の仕様」）
@@ -113,8 +121,11 @@ final class BluetoothManager {
             // 待受成功後にデータ受信処理へ引き継ぐため、ここで生成しておく（開始はstartReceiving()で行う）
             self.dataReceiver = DataReceiver(session: session, myID: myID, targetID: targetID)
 
-            ListenStartHandshake(session: session).start(myID: myID, targetID: targetID) { [weak self] success in
+            let handshake = ListenStartHandshake(session: session)
+            self.listenStartHandshake = handshake
+            handshake.start(myID: myID, targetID: targetID) { [weak self] success in
                 guard let self else { return }
+                self.listenStartHandshake = nil
                 if success {
                     // ハンドシェイクからデータ受信処理へ、Writeの受信窓口を引き継ぐ
                     // （この時点からはDataReceiverのみがWriteを解釈し、ハンドシェイクのロジックとは混在しない）
@@ -135,6 +146,10 @@ final class BluetoothManager {
         centralSession = nil
         peripheralSession = nil
         dataReceiver = nil
+        // セッションのteardownによりハンドシェイク側のコールバックは呼ばれなくなるため、
+        // 処理途中で切断された場合に備えてここでも明示的に解放する
+        connectionStartHandshake = nil
+        listenStartHandshake = nil
         role = .none
         completion?()
     }

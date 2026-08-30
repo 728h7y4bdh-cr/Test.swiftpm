@@ -56,10 +56,14 @@ final class DataReceiver {
         guard let payload = PayloadCodec.decode(data) else { return }
 
         // 送信種別0x29・通信種別0x02、送信元ID＝接続先ID、送信先ID＝自端末ID、
-        // 入力データ＝ASCII"YAMA"または"KAWA"（0x20埋め）であることを確認する
+        // 入力データ＝ASCII"YAMA"または"KAWA"（10byte固定・0x20埋め）であることを確認する。
+        // 文字列化してtrimする方式だと、先頭にスペースが入った不正な電文
+        // （例: " YAMA     "）まで正常データとして誤判定してしまうため、
+        // 10byteのバイト列同士をそのまま比較する
         guard payload.communicationType == .data, payload.payloadType == .request,
               payload.sourceID == targetID, payload.destinationID == myID,
-              payload.inputDataText == "YAMA" || payload.inputDataText == "KAWA" else {
+              payload.inputData == PayloadCodec.paddedInputData(from: "YAMA")
+              || payload.inputData == PayloadCodec.paddedInputData(from: "KAWA") else {
             onNotDetect?()
             return
         }
