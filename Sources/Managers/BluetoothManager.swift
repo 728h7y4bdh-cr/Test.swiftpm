@@ -55,6 +55,19 @@ final class BluetoothManager {
     private var connectionStartHandshake: ConnectionStartHandshake?
     private var listenStartHandshake: ListenStartHandshake?
 
+    /// Central役の切断要求(`cancelPeripheralConnection`)を出したが、実際の切断完了が
+    /// まだCore Bluetoothから通知されていない間、`true`になる（R-04対応）。
+    /// この間に新しい通信を開始しようとすると、直前の切断が完全に片付く前に新しいセッションを
+    /// 作ることになり、実機のBluetooth通信が不安定になる可能性があるため、ボタン操作側
+    /// （`ConnectionViewController`）はこのフラグを見て操作を止める。
+    ///
+    /// 対象はCentral役の切断のみ。Peripheral役の切断（`stopAdvertising`／`removeAllServices`）には
+    /// Core Bluetooth側に完了通知の仕組みが無く、確実に待つ手段が無いため対象外としている
+    /// （「待受成功→戻る→待受開始」「待受成功→戻る→接続開始」のケースは、この保護の対象外。
+    /// 前者は自分から能動的に接続しにいかないため実害は小さいと考えられるが、後者は理屈上のリスクが
+    /// 残っており、実機のE2E試験（`docs/開発環境書.md` 4.7）で問題が無いか確認すること）。
+    private(set) var isDisconnecting = false
+
     // MARK: - Public: Bluetooth通信開始処理（PS設計書 6.2, Central役）
 
     func startConnecting(myID: String, targetID: String, completion: @escaping (Bool) -> Void) {
@@ -142,7 +155,8 @@ final class BluetoothManager {
     // MARK: - Public: Bluetooth通信切断処理（PS設計書 6.4）
 
     func disconnect(completion: (() -> Void)? = nil) {
-        Disconnector.disconnect(centralSession: centralSession, peripheralSession: peripheralSession)
+        let central = centralSession
+        let peripheral = peripheralSession
         centralSession = nil
         peripheralSession = nil
         dataReceiver = nil
@@ -151,6 +165,16 @@ final class BluetoothManager {
         connectionStartHandshake = nil
         listenStartHandshake = nil
         role = .none
+
+        // Central役の接続中セッションがあった場合のみ、実際の切断完了を待つ対象とする
+        if central != nil {
+            isDisconnecting = true
+        }
+        Disconnector.disconnect(centralSession: central, peripheralSession: peripheral) { [weak self] in
+            self?.isDisconnecting = false
+        }
+
+        // UI側の完了通知は切断完了を待たず、これまで通り即座に呼ぶ（画面が一瞬固まって見えるのを避けるため）
         completion?()
     }
 

@@ -192,6 +192,12 @@ final class ConnectionViewController: CommunicationBaseViewController {
         onSuccess: @escaping () -> Void
     ) {
         guard !isProcessing else { return }
+        // 直前の切断がCore Bluetooth側でまだ完了していない場合、新しい通信を今始めると
+        // 不安定になる可能性があるため、完了まで操作を止める（R-04対応）
+        guard !BluetoothManager.shared.isDisconnecting else {
+            presentAlert(message: "しばらくしてから操作してください")
+            return
+        }
 
         let myID = normalizedID(from: myIdTextField.text)
         let targetID = normalizedID(from: targetIdTextField.text)

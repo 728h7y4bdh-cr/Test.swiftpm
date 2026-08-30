@@ -26,6 +26,8 @@ final class BluetoothCentralSession: NSObject {
     private var responseCharacteristic: CBCharacteristic?
     private var isScanRequested = false
     private var pendingWriteCompletion: ((Bool) -> Void)?
+    /// `teardown(completion:)`で、実際のCore Bluetooth側の切断完了を待っている間の完了通知先
+    private var pendingTeardownCompletion: (() -> Void)?
 
     /// PS設計書 6.2「相手端末を発見する」：BluetoothGATT.serviceUUIDをアドバタイズしている
     /// 端末（＝待受中の相手）をスキャンし、発見次第接続する。
@@ -55,16 +57,24 @@ final class BluetoothCentralSession: NSObject {
 
     /// 接続の破棄・状態のクリア。PS設計書 6.4「Bluetooth通信切断処理」の実行時に、
     /// Coordinator（BluetoothManager）から呼ばれる。
-    func teardown() {
+    ///
+    /// `cancelPeripheralConnection`はCore Bluetoothへの切断要求であり、呼んだ時点では
+    /// 実際の切断が完了していない（完了は`didDisconnectPeripheral`／`didFailToConnect`で
+    /// 後から非同期に通知される）。そのため`completion`は、接続中の相手が存在した場合のみ
+    /// その通知を待ってから呼び、存在しない場合（そもそも接続確立前など）は即座に呼ぶ。
+    func teardown(completion: @escaping () -> Void) {
         onReady = nil
         onResponseReceived = nil
         onFailure = nil
         isScanRequested = false
         pendingWriteCompletion = nil
-        if let peripheral {
-            centralManager?.cancelPeripheralConnection(peripheral)
-        }
         centralManager?.stopScan()
+        if let peripheral {
+            pendingTeardownCompletion = completion
+            centralManager?.cancelPeripheralConnection(peripheral)
+        } else {
+            completion()
+        }
         peripheral = nil
         requestCharacteristic = nil
         responseCharacteristic = nil
@@ -113,6 +123,7 @@ extension BluetoothCentralSession: CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         TempLogStore.append("didFailToConnect: \(String(describing: error)) -> onFailure") // TEMP-LOG
         onFailure?()
+        completeTeardownIfNeeded()
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
@@ -121,6 +132,14 @@ extension BluetoothCentralSession: CBCentralManagerDelegate {
         requestCharacteristic = nil
         responseCharacteristic = nil
         onFailure?()
+        completeTeardownIfNeeded()
+    }
+
+    /// `teardown(completion:)`が切断完了を待っていれば、その完了通知を呼ぶ
+    private func completeTeardownIfNeeded() {
+        let completion = pendingTeardownCompletion
+        pendingTeardownCompletion = nil
+        completion?()
     }
 }
 
