@@ -81,12 +81,10 @@ final class BluetoothCentralSession: NSObject {
     }
 
     private func beginScanIfReady() {
-        TempLogStore.append("beginScanIfReady: isScanRequested=\(isScanRequested), state=\(String(describing: centralManager?.state.rawValue))") // TEMP-LOG
         guard isScanRequested, let centralManager, centralManager.state == .poweredOn else { return }
         isScanRequested = false
         // BluetoothGATT.serviceUUIDをアドバタイズしている端末（＝待受中の相手）のみをスキャン対象にする
         centralManager.scanForPeripherals(withServices: [BluetoothGATT.serviceUUID], options: nil)
-        TempLogStore.append("scanForPeripherals called") // TEMP-LOG
     }
 }
 
@@ -94,7 +92,6 @@ final class BluetoothCentralSession: NSObject {
 
 extension BluetoothCentralSession: CBCentralManagerDelegate {
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        TempLogStore.append("centralManagerDidUpdateState: \(central.state.rawValue)") // TEMP-LOG
         switch central.state {
         case .poweredOn:
             beginScanIfReady()
@@ -108,7 +105,6 @@ extension BluetoothCentralSession: CBCentralManagerDelegate {
     }
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
-        TempLogStore.append("didDiscover peripheral: \(peripheral.identifier), rssi=\(RSSI)") // TEMP-LOG
         central.stopScan()
         self.peripheral = peripheral
         peripheral.delegate = self
@@ -116,18 +112,15 @@ extension BluetoothCentralSession: CBCentralManagerDelegate {
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        TempLogStore.append("didConnect peripheral") // TEMP-LOG
         peripheral.discoverServices([BluetoothGATT.serviceUUID])
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        TempLogStore.append("didFailToConnect: \(String(describing: error)) -> onFailure") // TEMP-LOG
         onFailure?()
         completeTeardownIfNeeded()
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        TempLogStore.append("didDisconnectPeripheral: \(String(describing: error)) -> onFailure") // TEMP-LOG
         self.peripheral = nil
         requestCharacteristic = nil
         responseCharacteristic = nil
@@ -147,7 +140,6 @@ extension BluetoothCentralSession: CBCentralManagerDelegate {
 
 extension BluetoothCentralSession: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        TempLogStore.append("didDiscoverServices: error=\(String(describing: error)), services=\(String(describing: peripheral.services))") // TEMP-LOG
         guard error == nil, let service = peripheral.services?.first(where: { $0.uuid == BluetoothGATT.serviceUUID }) else {
             onFailure?()
             return
@@ -159,7 +151,6 @@ extension BluetoothCentralSession: CBPeripheralDelegate {
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        TempLogStore.append("didDiscoverCharacteristicsFor: error=\(String(describing: error)), characteristics=\(String(describing: service.characteristics))") // TEMP-LOG
         guard error == nil, let characteristics = service.characteristics else {
             onFailure?()
             return
@@ -179,7 +170,6 @@ extension BluetoothCentralSession: CBPeripheralDelegate {
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
-        TempLogStore.append("didUpdateNotificationStateFor: error=\(String(describing: error)), isNotifying=\(characteristic.isNotifying)") // TEMP-LOG
         guard error == nil, characteristic.uuid == BluetoothGATT.responseCharacteristicUUID else {
             onFailure?()
             return
@@ -188,14 +178,12 @@ extension BluetoothCentralSession: CBPeripheralDelegate {
     }
 
     func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
-        TempLogStore.append("didWriteValueFor: error=\(String(describing: error))") // TEMP-LOG
         let completion = pendingWriteCompletion
         pendingWriteCompletion = nil
         completion?(error == nil)
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        TempLogStore.append("didUpdateValueFor: error=\(String(describing: error)), hasData=\(characteristic.value != nil)") // TEMP-LOG
         guard characteristic.uuid == BluetoothGATT.responseCharacteristicUUID, error == nil, let data = characteristic.value else { return }
         onResponseReceived?(data)
     }

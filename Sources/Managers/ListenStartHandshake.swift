@@ -24,17 +24,14 @@ final class ListenStartHandshake {
 
     /// 処理を開始する。結果（true=正常終了／false=異常終了）はcompletionで通知する。
     func start(myID: String, targetID: String, completion: @escaping (Bool) -> Void) {
-        TempLogStore.append("ListenStartHandshake.start: myID=\(myID), targetID=\(targetID)") // TEMP-LOG
         self.myID = myID
         self.targetID = targetID
         self.completion = completion
 
         session.onFailure = { [weak self] in
-            TempLogStore.append("ListenStartHandshake: session.onFailure fired") // TEMP-LOG
             self?.finish(success: false)
         }
         session.onWriteReceived = { [weak self] data in
-            TempLogStore.append("ListenStartHandshake: session.onWriteReceived fired, \(data.count) bytes") // TEMP-LOG
             self?.handleWrite(data)
         }
 
@@ -44,7 +41,6 @@ final class ListenStartHandshake {
         // PS設計書 6.3：処理開始（ボタン押下）の瞬間から60秒のタイムアウトを設定する
         timeoutTimer?.invalidate()
         timeoutTimer = Timer.scheduledTimer(withTimeInterval: Self.timeoutInterval, repeats: false) { [weak self] _ in
-            TempLogStore.append("ListenStartHandshake: timeoutTimer fired") // TEMP-LOG
             self?.finish(success: false)
         }
 
@@ -54,10 +50,8 @@ final class ListenStartHandshake {
     /// PS設計書 6.3「60秒以内に検出した場合」の判定処理と応答送信
     private func handleWrite(_ data: Data) {
         guard let payload = PayloadCodec.decode(data) else {
-            TempLogStore.append("handleWrite: decode failed, \(data.count) bytes") // TEMP-LOG
             return
         }
-        TempLogStore.append("handleWrite: payloadType=\(payload.payloadType), communicationType=\(payload.communicationType), sourceID=\(payload.sourceID), destinationID=\(payload.destinationID), inputDataIsBlank=\(payload.inputData == PayloadCodec.blankInputData) (expected sourceID=\(targetID), destinationID=\(myID))") // TEMP-LOG
         // PS設計書 6.3「待受内容」：送信種別0x29固定・通信種別0x01、
         // 送信元ID＝接続先ID、送信先ID＝自端末ID、入力データ＝0x20埋め
         guard payload.payloadType == .request, payload.communicationType == .connection,
@@ -84,7 +78,6 @@ final class ListenStartHandshake {
     }
 
     private func finish(success: Bool) {
-        TempLogStore.append("ListenStartHandshake.finish: success=\(success)") // TEMP-LOG
         timeoutTimer?.invalidate()
         timeoutTimer = nil
         session.onWriteReceived = nil

@@ -22,19 +22,15 @@ final class ConnectionStartHandshake {
 
     /// 処理を開始する。結果（true=正常終了／false=異常終了）はcompletionで通知する。
     func start(myID: String, targetID: String, completion: @escaping (Bool) -> Void) {
-        TempLogStore.append("ConnectionStartHandshake.start: myID=\(myID), targetID=\(targetID)") // TEMP-LOG
         self.completion = completion
 
         session.onFailure = { [weak self] in
-            TempLogStore.append("ConnectionStartHandshake: session.onFailure fired") // TEMP-LOG
             self?.finish(success: false)
         }
         session.onReady = { [weak self] in
-            TempLogStore.append("ConnectionStartHandshake: session.onReady fired") // TEMP-LOG
             self?.sendRequest(myID: myID, targetID: targetID)
         }
         session.onResponseReceived = { [weak self] data in
-            TempLogStore.append("ConnectionStartHandshake: session.onResponseReceived fired, \(data.count) bytes") // TEMP-LOG
             self?.handleResponse(data, myID: myID, targetID: targetID)
         }
 
@@ -43,7 +39,6 @@ final class ConnectionStartHandshake {
         // ここで発見〜応答検出までの全体を60秒に収める。
         timeoutTimer?.invalidate()
         timeoutTimer = Timer.scheduledTimer(withTimeInterval: Self.timeoutInterval, repeats: false) { [weak self] _ in
-            TempLogStore.append("ConnectionStartHandshake: timeoutTimer fired") // TEMP-LOG
             self?.finish(success: false)
         }
 
@@ -52,7 +47,6 @@ final class ConnectionStartHandshake {
 
     /// PS設計書 6.2「送信データ」を1回送信する（応答待ちタイマーは`start`で開始済み）。
     private func sendRequest(myID: String, targetID: String) {
-        TempLogStore.append("sendRequest: maximumWriteLength=\(session.maximumWriteLength)") // TEMP-LOG
         // 送信サイズ確認（PS設計書 0.1 No.5／5.3）：18byte以上であることを確認してから1回で送信する
         guard session.maximumWriteLength >= Payload.totalLength else {
             finish(success: false)
@@ -83,10 +77,8 @@ final class ConnectionStartHandshake {
     /// PS設計書 6.2「60秒以内に待ち受けしたデータを検出した場合」の判定処理
     private func handleResponse(_ data: Data, myID: String, targetID: String) {
         guard let payload = PayloadCodec.decode(data) else {
-            TempLogStore.append("handleResponse: decode failed, \(data.count) bytes") // TEMP-LOG
             return
         }
-        TempLogStore.append("handleResponse: payloadType=\(payload.payloadType), communicationType=\(payload.communicationType), sourceID=\(payload.sourceID), destinationID=\(payload.destinationID), inputDataIsBlank=\(payload.inputData == PayloadCodec.blankInputData) (expected sourceID=\(targetID), destinationID=\(myID))") // TEMP-LOG
         // PS設計書 6.2「待受内容」：送信種別0x92固定・通信種別0x01、
         // 送信元ID＝送信時の送信先ID、送信先ID＝送信時の送信元ID、入力データ＝0x20埋め
         guard payload.payloadType == .response, payload.communicationType == .connection,
@@ -98,7 +90,6 @@ final class ConnectionStartHandshake {
     }
 
     private func finish(success: Bool) {
-        TempLogStore.append("ConnectionStartHandshake.finish: success=\(success)") // TEMP-LOG
         timeoutTimer?.invalidate()
         timeoutTimer = nil
         session.onReady = nil
