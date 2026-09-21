@@ -18,16 +18,16 @@ final class TopViewController: UIViewController {
         }
     }
 
-    /// SS設計書 3章「表示内容」：画面中央に文字列「Sample App for BlueCom」を表示する
-    /// （要件定義書 11.1：「画面中央に『Sample App for BlueCom』の文字を表示する」）。
-    /// 見た目のアクセントとして、メインタイトルとサブタイトルで書体・サイズ・色に強弱をつける
-    /// （UI設計書 4.2「lblTitle」参照。表示する文字列自体は1本のラベルにまとめている）。
+    /// SS設計書 3章「表示内容」：画面中央に文字列「BlueCom」を表示する
+    /// （要件定義書 11.1：「画面中央に『BlueCom』の文字を表示する」）。
+    /// UI設計書 4.2「lblTitle」参照：黒文字・1行・通常書体（太字にしない）。
     private func setUpTitleLabel() {
         let label = UILabel()
-        label.attributedText = makeTitleAttributedString()
-        label.numberOfLines = 0
+        label.text = "BlueCom"
+        label.font = UIFont.systemFont(ofSize: 40, weight: .regular)
+        label.textColor = .label
         label.textAlignment = .center
-        label.accessibilityLabel = "Sample App for BlueCom"
+        label.accessibilityLabel = "BlueCom"
         label.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(label)
 
@@ -37,31 +37,6 @@ final class TopViewController: UIViewController {
             label.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
             label.trailingAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16)
         ])
-    }
-
-    private func makeTitleAttributedString() -> NSAttributedString {
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .center
-        paragraphStyle.lineSpacing = 8
-
-        let result = NSMutableAttributedString(
-            string: "Sample App\n",
-            attributes: [
-                .font: UIFont.systemFont(ofSize: 40, weight: .heavy),
-                .foregroundColor: UIColor.systemBlue,
-                .paragraphStyle: paragraphStyle
-            ]
-        )
-        result.append(NSAttributedString(
-            string: "FOR BLUECOM",
-            attributes: [
-                .font: UIFont.systemFont(ofSize: 14, weight: .semibold),
-                .foregroundColor: UIColor.secondaryLabel,
-                .kern: 2.5,
-                .paragraphStyle: paragraphStyle
-            ]
-        ))
-        return result
     }
 
     /// Bluetooth接続画面へ遷移する。TOP画面へは戻らせない仕様のため、pushではなく
