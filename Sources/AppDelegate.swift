@@ -2,7 +2,7 @@ import UIKit
 
 // UIKit標準のAppDelegate/SceneDelegateによるアプリ起動方式。
 // 本アプリはSwiftUIの`App`プロトコルを使わず、UIKitのみで構成する
-// （要件定義書「開発言語のフレームワーク」：UIKit）。
+// （要件定義書「開発環境」の「UIフレームワーク」：UIKit（SwiftUIは使用しない）に対応）。
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
     // Storyboard/Info.plistを使わない構成のため、@UIApplicationMainの代わりに
@@ -11,7 +11,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(AppDelegate.self))
     }
 
-    /// アプリ起動時に一度だけ呼ばれる。初期化処理（PS設計書 6.1、要件定義書 10章）を実行する。
+    /// アプリ起動時に一度だけ呼ばれる。初期化処理（PS設計書「初期化処理」、要件定義書「初期化処理」）を実行する。
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?

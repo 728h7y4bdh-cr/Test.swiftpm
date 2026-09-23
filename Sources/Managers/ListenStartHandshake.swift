@@ -1,6 +1,6 @@
 import Foundation
 
-/// Bluetooth待受開始処理（PS設計書 6.3、要件定義書 6章）。Peripheral役。
+/// Bluetooth待受開始処理（PS設計書「Bluetooth待受開始処理（Peripheral側）」、要件定義書「Bluetooth待受開始処理」）。Peripheral役。
 ///
 /// 処理開始（`start`呼び出し＝「待受開始」ボタン押下）の瞬間から60秒間、通信開始要求
 /// （送信種別0x29・通信種別0x01）を待受し、検出できれば応答を1回送信する。
@@ -9,7 +9,7 @@ import Foundation
 /// CoreBluetooth自体の型には依存せず、`BluetoothPeripheralSession`が提供する
 /// クロージャベースの窓口（Data の送受信）のみを介して動作する。
 final class ListenStartHandshake {
-    /// PS設計書 6.3：処理開始から本処理全体（アドバタイズ開始〜要求検出）に許容する時間
+    /// PS設計書「Bluetooth待受開始処理（Peripheral側）」：処理開始から本処理全体（アドバタイズ開始〜要求検出）に許容する時間
     private static let timeoutInterval: TimeInterval = 60.0
 
     private let session: BluetoothPeripheralSession
@@ -35,10 +35,10 @@ final class ListenStartHandshake {
             self?.handleWrite(data)
         }
 
-        // PS設計書 3.2 No.6：処理開始（ボタン押下）時点でlisteningへ遷移
+        // 処理開始（ボタン押下）時点でlisteningへ遷移
         StatusManager.shared.apply(.listenStarted)
 
-        // PS設計書 6.3：処理開始（ボタン押下）の瞬間から60秒のタイムアウトを設定する
+        // PS設計書「Bluetooth待受開始処理（Peripheral側）」：処理開始（ボタン押下）の瞬間から60秒のタイムアウトを設定する
         timeoutTimer?.invalidate()
         timeoutTimer = Timer.scheduledTimer(withTimeInterval: Self.timeoutInterval, repeats: false) { [weak self] _ in
             self?.finish(success: false)
@@ -47,12 +47,12 @@ final class ListenStartHandshake {
         session.start()
     }
 
-    /// PS設計書 6.3「60秒以内に検出した場合」の判定処理と応答送信
+    /// PS設計書「Bluetooth待受開始処理（Peripheral側）」の「60秒以内に検出した場合」の判定処理と応答送信
     private func handleWrite(_ data: Data) {
         guard let payload = PayloadCodec.decode(data) else {
             return
         }
-        // PS設計書 6.3「待受内容」：送信種別0x29固定・通信種別0x01、
+        // PS設計書「Bluetooth待受開始処理（Peripheral側）」の「待受内容」：送信種別0x29固定・通信種別0x01、
         // 送信元ID＝接続先ID、送信先ID＝自端末ID、入力データ＝0x20埋め
         guard payload.payloadType == .request, payload.communicationType == .connection,
               payload.sourceID == targetID, payload.destinationID == myID,
@@ -63,7 +63,7 @@ final class ListenStartHandshake {
         timeoutTimer?.invalidate()
         timeoutTimer = nil
 
-        // PS設計書 6.3「検出時送信データ」：送信種別0x92固定・通信種別0x01、
+        // PS設計書「Bluetooth待受開始処理（Peripheral側）」の「検出時送信データ」：送信種別0x92固定・通信種別0x01、
         // 送信元ID＝自端末ID、送信先ID＝接続先ID、入力データ＝0x20埋め、を1回送信する
         let responsePayload = Payload(
             payloadType: .response,
@@ -87,7 +87,7 @@ final class ListenStartHandshake {
         self.completion = nil
 
         if success {
-            // PS設計書 3.2 No.7：待受処理の正常終了通知時にwaitingToReceiveへ遷移
+            // 待受処理の正常終了通知時にwaitingToReceiveへ遷移
             StatusManager.shared.apply(.listenSucceeded)
         }
         completion?(success)

@@ -1,12 +1,12 @@
 import CoreBluetooth
 import Foundation
 
-/// Peripheral役としてのBluetooth接続を担う「役割」レイヤー（PS設計書 5.1「Central/Peripheral役割」）。
+/// Peripheral役としてのBluetooth接続を担う「役割」レイヤー（PS設計書「Central/Peripheral役割」）。
 ///
 /// アドバタイズ・GATTサーバーの提供・Write受信・Notify送信という「通信の運び方」だけに
 /// 責任を持つ。BLE自体の通信処理はCore Bluetoothライブラリが行うため、このクラスはそのAPIを
-/// 呼び出すだけであり、待受開始ハンドシェイク（PS設計書 6.3「Bluetooth待受開始処理」）やデータ受信チェック
-/// （6.6「データ受信処理」）が「受信した内容に何を期待するか」というアプリケーション独自の通信内容は一切知らない。
+/// 呼び出すだけであり、待受開始ハンドシェイク（PS設計書「Bluetooth待受開始処理（Peripheral側）」）やデータ受信チェック
+/// （PS設計書「データ受信処理（Peripheral側／データ受信画面から呼び出し）」）が「受信した内容に何を期待するか」というアプリケーション独自の通信内容は一切知らない。
 /// 上位の`ListenStartHandshake`／`DataReceiver`が、このセッションが提供するクロージャベースの
 /// 窓口を介して実際のペイロードを送受信する。
 final class BluetoothPeripheralSession: NSObject {
@@ -24,7 +24,7 @@ final class BluetoothPeripheralSession: NSObject {
     private var pendingNotifyData: Data?
     private var pendingNotifyCompletion: ((Bool) -> Void)?
 
-    /// PS設計書 5.2「GATTプロファイル定義」の2キャラクタリスティックを公開し、アドバタイズを開始する
+    /// PS設計書「GATTプロファイル定義」の2キャラクタリスティックを公開し、アドバタイズを開始する
     func start() {
         isAdvertiseRequested = true
         if peripheralManager == nil {
@@ -35,7 +35,7 @@ final class BluetoothPeripheralSession: NSObject {
 
     /// Responseキャラクタリスティックへ1回Notify送信する。送信キューが詰まっている場合は
     /// 内部で保持しておき、`peripheralManagerIsReady(toUpdateSubscribers:)`で自動的に再送する
-    /// （PS設計書 6.3「送信失敗の場合は…異常終了を通知する」に対する再試行の実装上の補足）。
+    /// （PS設計書「Bluetooth待受開始処理（Peripheral側）」の「送信失敗の場合は…異常終了を通知する」に対する再試行の実装上の補足）。
     func notify(_ data: Data, completion: @escaping (Bool) -> Void) {
         guard let peripheralManager, let responseCharacteristic else {
             completion(false)
@@ -49,7 +49,7 @@ final class BluetoothPeripheralSession: NSObject {
         }
     }
 
-    /// アドバタイズ停止・GATTサービス取り下げ。PS設計書 6.4「Bluetooth通信切断処理」の実行時に、
+    /// アドバタイズ停止・GATTサービス取り下げ。PS設計書「Bluetooth通信切断処理」の実行時に、
     /// Coordinator（BluetoothManager）から呼ばれる。
     func teardown() {
         onReady = nil
@@ -70,14 +70,14 @@ final class BluetoothPeripheralSession: NSObject {
         guard isAdvertiseRequested, let peripheralManager, peripheralManager.state == .poweredOn else { return }
         isAdvertiseRequested = false
 
-        // Request/Dataキャラクタリスティック：Central→Peripheralへの書き込み専用（PS設計書 5.2）
+        // Request/Dataキャラクタリスティック：Central→Peripheralへの書き込み専用（PS設計書「GATTプロファイル定義」）
         let requestChar = CBMutableCharacteristic(
             type: BluetoothGATT.requestCharacteristicUUID,
             properties: [.write],
             value: nil,
             permissions: [.writeable]
         )
-        // Responseキャラクタリスティック：Peripheral→Centralへの通知専用（PS設計書 5.2）
+        // Responseキャラクタリスティック：Peripheral→Centralへの通知専用（PS設計書「GATTプロファイル定義」）
         let responseChar = CBMutableCharacteristic(
             type: BluetoothGATT.responseCharacteristicUUID,
             properties: [.notify],

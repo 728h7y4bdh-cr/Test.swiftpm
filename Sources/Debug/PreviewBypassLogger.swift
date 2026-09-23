@@ -6,7 +6,7 @@ import Foundation
 ///
 /// 正式仕様（要件定義書・SS設計書・UI設計書）には存在しない、開発時のみのデバッグ処理であり、
 /// `#if DEBUG`で囲われているためRelease／配布（TestFlight含む）ビルドには一切含まれない
-/// （PS設計書 付録A.1「プレビュー確認用バイパス」参照）。
+/// （PS設計書「プレビュー確認用バイパス」参照）。
 enum PreviewBypassLogger {
     /// 直近にログ出力した際の状態（未出力ならnil）
     private static var lastLoggedState: Bool?

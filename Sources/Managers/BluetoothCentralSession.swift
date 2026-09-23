@@ -1,12 +1,12 @@
 import CoreBluetooth
 import Foundation
 
-/// Central役としてのBluetooth接続を担う「役割」レイヤー（PS設計書 5.1「Central/Peripheral役割」）。
+/// Central役としてのBluetooth接続を担う「役割」レイヤー（PS設計書「Central/Peripheral役割」）。
 ///
 /// このクラスはCore Bluetoothの接続確立・GATT探索・Write/Notifyの送受信という
 /// 「通信の運び方」だけに責任を持つ。BLE自体の通信処理はCore Bluetoothライブラリが行うため、
-/// このクラスはそのAPIを呼び出すだけであり、通信開始ハンドシェイク（PS設計書 6.2「Bluetooth通信開始処理」）や
-/// データ送信（6.5「データ送信処理」）が「いつ・何を送るか」というアプリケーション独自の通信内容は一切知らない
+/// このクラスはそのAPIを呼び出すだけであり、通信開始ハンドシェイク（PS設計書「Bluetooth通信開始処理（Central側）」）や
+/// データ送信（PS設計書「データ送信処理（Central側／データ送信画面から呼び出し）」）が「いつ・何を送るか」というアプリケーション独自の通信内容は一切知らない
 /// （ペイロードのバイトフォーマットにも依存しない）。上位の`ConnectionStartHandshake`／`DataSender`が、
 /// このセッションが提供するクロージャベースの窓口を介して実際のペイロードを送受信する。
 ///
@@ -29,7 +29,7 @@ final class BluetoothCentralSession: NSObject {
     /// `teardown(completion:)`で、実際のCore Bluetooth側の切断完了を待っている間の完了通知先
     private var pendingTeardownCompletion: (() -> Void)?
 
-    /// PS設計書 6.2「相手端末を発見する」：BluetoothGATT.serviceUUIDをアドバタイズしている
+    /// PS設計書「Bluetooth通信開始処理（Central側）」の「相手端末を発見する」：BluetoothGATT.serviceUUIDをアドバタイズしている
     /// 端末（＝待受中の相手）をスキャンし、発見次第接続する。
     func start() {
         isScanRequested = true
@@ -40,7 +40,7 @@ final class BluetoothCentralSession: NSObject {
         beginScanIfReady()
     }
 
-    /// 送信可能な最大バイト数（PS設計書 5.3「送信サイズ確認方針」の判定に使用）
+    /// 送信可能な最大バイト数（PS設計書「送信時のサイズ確認方針」の判定に使用）
     var maximumWriteLength: Int {
         peripheral?.maximumWriteValueLength(for: .withResponse) ?? 0
     }
@@ -55,7 +55,7 @@ final class BluetoothCentralSession: NSObject {
         peripheral.writeValue(data, for: requestCharacteristic, type: .withResponse)
     }
 
-    /// 接続の破棄・状態のクリア。PS設計書 6.4「Bluetooth通信切断処理」の実行時に、
+    /// 接続の破棄・状態のクリア。PS設計書「Bluetooth通信切断処理」の実行時に、
     /// Coordinator（BluetoothManager）から呼ばれる。
     ///
     /// `cancelPeripheralConnection`はCore Bluetoothへの切断要求であり、呼んだ時点では

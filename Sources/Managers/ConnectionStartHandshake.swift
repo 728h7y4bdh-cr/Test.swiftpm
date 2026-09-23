@@ -1,6 +1,6 @@
 import Foundation
 
-/// Bluetooth通信開始処理（PS設計書 6.2、要件定義書 5章）。Central役。
+/// Bluetooth通信開始処理（PS設計書「Bluetooth通信開始処理（Central側）」、要件定義書「Bluetooth通信開始処理」）。Central役。
 ///
 /// 処理開始（`start`呼び出し＝「接続開始」ボタン押下）の瞬間から60秒以内に、
 /// 相手の発見・接続・要求送信・応答（Notify）検出までを完了できるかどうかに責任を持つ。
@@ -9,7 +9,7 @@ import Foundation
 /// CoreBluetooth自体の型には依存せず、`BluetoothCentralSession`が提供する
 /// クロージャベースの窓口（Data の送受信）のみを介して動作する。
 final class ConnectionStartHandshake {
-    /// PS設計書 6.2：処理開始から本処理全体（相手の発見〜応答検出）に許容する時間
+    /// PS設計書「Bluetooth通信開始処理（Central側）」：処理開始から本処理全体（相手の発見〜応答検出）に許容する時間
     private static let timeoutInterval: TimeInterval = 60.0
 
     private let session: BluetoothCentralSession
@@ -34,7 +34,7 @@ final class ConnectionStartHandshake {
             self?.handleResponse(data, myID: myID, targetID: targetID)
         }
 
-        // PS設計書 6.2：処理開始（ボタン押下）の瞬間から60秒のタイムアウトを設定する。
+        // PS設計書「Bluetooth通信開始処理（Central側）」：処理開始（ボタン押下）の瞬間から60秒のタイムアウトを設定する。
         // 相手の発見（スキャン）にはCore Bluetooth側の時間制限がないため、
         // ここで発見〜応答検出までの全体を60秒に収める。
         timeoutTimer?.invalidate()
@@ -45,15 +45,16 @@ final class ConnectionStartHandshake {
         session.start()
     }
 
-    /// PS設計書 6.2「送信データ」を1回送信する（応答待ちタイマーは`start`で開始済み）。
+    /// PS設計書「Bluetooth通信開始処理（Central側）」の「送信データ」を1回送信する（応答待ちタイマーは`start`で開始済み）。
     private func sendRequest(myID: String, targetID: String) {
-        // 送信サイズ確認（PS設計書 0.1 No.5／5.3）：18byte以上であることを確認してから1回で送信する
+        // ペイロードは18byte固定長のため、MTU（最大書込みサイズ）が18byte以上であることを確認したうえで
+        // 1回で送信する（分割送信はしない）。仕様根拠：PS設計書「送信時のサイズ確認方針」
         guard session.maximumWriteLength >= Payload.totalLength else {
             finish(success: false)
             return
         }
 
-        // PS設計書 6.2「送信データ」：送信種別0x29固定・通信種別0x01、
+        // PS設計書「Bluetooth通信開始処理（Central側）」の「送信データ」：送信種別0x29固定・通信種別0x01、
         // 送信元ID＝自端末ID、送信先ID＝接続先ID、入力データ＝0x20埋め
         let payload = Payload(
             payloadType: .request,
@@ -63,7 +64,7 @@ final class ConnectionStartHandshake {
             inputData: PayloadCodec.blankInputData
         )
 
-        // PS設計書 3.2 No.3：通信開始のデータ送信時にconnectingへ遷移
+        // 通信開始のデータ送信時にconnectingへ遷移
         StatusManager.shared.apply(.connectionStartRequestSent)
 
         session.write(PayloadCodec.encode(payload)) { [weak self] success in
@@ -74,12 +75,12 @@ final class ConnectionStartHandshake {
         }
     }
 
-    /// PS設計書 6.2「60秒以内に待ち受けしたデータを検出した場合」の判定処理
+    /// PS設計書「Bluetooth通信開始処理（Central側）」の「60秒以内に待ち受けしたデータを検出した場合」の判定処理
     private func handleResponse(_ data: Data, myID: String, targetID: String) {
         guard let payload = PayloadCodec.decode(data) else {
             return
         }
-        // PS設計書 6.2「待受内容」：送信種別0x92固定・通信種別0x01、
+        // PS設計書「Bluetooth通信開始処理（Central側）」の「待受内容」：送信種別0x92固定・通信種別0x01、
         // 送信元ID＝送信時の送信先ID、送信先ID＝送信時の送信元ID、入力データ＝0x20埋め
         guard payload.payloadType == .response, payload.communicationType == .connection,
               payload.sourceID == targetID, payload.destinationID == myID,
@@ -100,7 +101,7 @@ final class ConnectionStartHandshake {
         self.completion = nil
 
         if success {
-            // PS設計書 3.2 No.4：通信開始処理の正常終了通知時にwaitingToSendへ遷移
+            // 通信開始処理の正常終了通知時にwaitingToSendへ遷移
             StatusManager.shared.apply(.connectionStartSucceeded)
         }
         completion?(success)
