@@ -170,7 +170,7 @@ final class ConnectionViewController: CommunicationBaseViewController {
     ) {
         guard !isProcessing else { return }
         // 直前の切断がCore Bluetooth側でまだ完了していない場合、新しい通信を今始めると
-        // 不安定になる可能性があるため、完了まで操作を止める（R-04対応）
+        // 不安定になる可能性があるため、完了まで操作を止める
         guard !BluetoothManager.shared.isDisconnecting else {
             presentAlert(message: "しばらくしてから操作してください")
             return

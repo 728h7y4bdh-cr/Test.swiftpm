@@ -10,14 +10,17 @@ enum BluetoothGATT {
     static let serviceUUID = CBUUID(string: "00000000-0000-0000-0000-000000000001")
 
     /// Request/Dataキャラクタリスティック（Central→Peripheral, Write）。
-    /// 双方向で送信が発生するのはBluetooth通信開始処理・Bluetooth待受開始処理のハンドシェイクのみであり、
-    /// データ受信処理側からの応答送信は不要なため、Write／Notifyの片方向2特性構成で全シナリオを表現できる。
-    /// このキャラクタリスティックは、Bluetooth通信開始要求とデータ送信の両方でCentralからPeripheralへの
-    /// 書き込みに使用する（Properties: Write）。仕様根拠：PS設計書「前提・設計上の補足事項」
+    /// Central側からPeripheral側へデータを送るためのキャラクタリスティックであり、以下の2つの送信に使用する。
+    ///   - Bluetooth接続時の通信開始要求
+    ///   - データ送信画面から送信するデータ
+    /// Central→Peripheralへの送信はこの1特性に集約されるため、方向ごとに1特性ずつの
+    /// 片方向2特性構成で全シナリオを表現できる。仕様根拠：PS設計書「前提・設計上の補足事項」
     static let requestCharacteristicUUID = CBUUID(string: "00000000-0000-0000-0000-000000000002")
 
     /// Responseキャラクタリスティック（Peripheral→Central, Notify）。
-    /// Bluetooth通信開始応答（待受側からの応答）でのみ使用する（Properties: Notify）。
-    /// データ受信処理では応答送信を行わないため未使用。仕様根拠：PS設計書「前提・設計上の補足事項」
+    /// Peripheral側からCentral側へ応答を返すためのキャラクタリスティックであり、以下の2つの応答に使用する。
+    ///   - Bluetooth接続時の通信開始要求に対する応答
+    ///   - データ受信時に送信元へ返す応答
+    /// 仕様根拠：PS設計書「前提・設計上の補足事項」
     static let responseCharacteristicUUID = CBUUID(string: "00000000-0000-0000-0000-000000000003")
 }

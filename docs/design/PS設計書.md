@@ -19,7 +19,7 @@
 | 1 | 通信ライブラリ | 通信には**Core Bluetooth**を使用する | BLE(Bluetooth Low Energy)のみを使用し、Wi-Fiハードウェアには関与しない |
 | 2 | ID→ペイロード変換 | 自端末ID／接続先ID（3桁の数値文字列 `000`〜`999`）をASCII変換し、3byteのバイナリとして格納する | — |
 | 3 | Central/Peripheral役割 | 「接続開始」ボタン操作端末＝**Central**、「待受開始」ボタン操作端末＝**Peripheral** | Bluetooth通信開始処理（能動的に探索・接続・送信する側）とBluetooth待受開始処理（受動的に待ち受ける側）の役割がCore BluetoothのCentral/Peripheralモデルと自然に対応するため |
-| 4 | GATT通信方向 | Central→Peripheralへの送信はWrite特性、Peripheral→Centralへの送信はNotify特性を用いる（片方向2特性構成） | 要件上、双方向で送信が発生するのは「5.Bluetooth通信開始処理」「6.Bluetooth待受開始処理」のハンドシェイクのみであり、データ受信処理側からの応答送信は不要なため、2特性で全シナリオを表現できる |
+| 4 | GATT通信方向 | Central→Peripheralへの送信はWrite特性、Peripheral→Centralへの送信はNotify特性を用いる（片方向2特性構成） | Central→Peripheralへの送信（通信開始要求・データ送信）とPeripheral→Centralへの送信（通信開始応答・データ受信応答）は、それぞれ送信方向が固定されているため、方向ごとに1特性ずつの2特性で全シナリオを表現できる |
 | 5 | 送信サイズ確認 | 書込み前に`peripheral.maximumWriteValueLength(for:)`を確認し、18byte以上であることを確認した上で`writeValue(_:for:type:)`を1回実行する（分割送信は行わない） | ペイロード18byteは固定長であり、MTU確認により1回の書込みで送信可能なため |
 
 ## 1. アーキテクチャ概要
@@ -220,7 +220,7 @@ stateDiagram-v2
 | Responseキャラクタリスティック（Peripheral→Central） | `00000000-0000-0000-0000-000000000003` | Notify | - |
 
 - **Request/Dataキャラクタリスティック**: Centralが「通信開始要求」（通信種別`0x01`）および「データ送信」（通信種別`0x02`）の18byteペイロードを書き込む。
-- **Responseキャラクタリスティック**: Peripheralが「通信開始応答」（送信種別`0x92`、通信種別`0x01`）の18byteペイロードをNotifyで通知する。データ受信処理（9章）では応答送信は行わない。
+- **Responseキャラクタリスティック**: Peripheralが「通信開始応答」（送信種別`0x92`、通信種別`0x01`）と「データ受信応答」（送信種別`0x92`、通信種別`0x02`、6.6節「検出時送信データ」）の18byteペイロードをNotifyで通知する。
 
 > UUIDは暫定値。実装時に本書のUUIDをソースコードの定数として使用し、変更する場合は本書を追随して更新すること。
 

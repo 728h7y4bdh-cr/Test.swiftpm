@@ -54,22 +54,20 @@ final class BluetoothManager {
     /// 後続処理（要求送信・タイムアウト時の異常終了通知）が一切実行されなくなる。
     private var connectionStartHandshake: ConnectionStartHandshake?
     private var listenStartHandshake: ListenStartHandshake?
-    /// `connectionStartHandshake`等と同じ理由（R-01）で、処理完了まで保持する。
+    /// `connectionStartHandshake`等と同じ理由で、処理完了まで保持する。
     /// `DataSender`が応答待ち（`session.onResponseReceived`・タイムアウトタイマー）を持つように
     /// なったため、保持しないと同じ問題が再発する。
     private var dataSender: DataSender?
 
     /// Central役の切断要求(`cancelPeripheralConnection`)を出したが、実際の切断完了が
-    /// まだCore Bluetoothから通知されていない間、`true`になる（R-04対応）。
+    /// まだCore Bluetoothから通知されていない間、`true`になる。
     /// この間に新しい通信を開始しようとすると、直前の切断が完全に片付く前に新しいセッションを
     /// 作ることになり、実機のBluetooth通信が不安定になる可能性があるため、ボタン操作側
     /// （`ConnectionViewController`）はこのフラグを見て操作を止める。
     ///
-    /// 対象はCentral役の切断のみ。Peripheral役の切断（`stopAdvertising`／`removeAllServices`）には
-    /// Core Bluetooth側に完了通知の仕組みが無く、確実に待つ手段が無いため対象外としている
-    /// （「待受成功→戻る→待受開始」「待受成功→戻る→接続開始」のケースは、この保護の対象外。
-    /// 前者は自分から能動的に接続しにいかないため実害は小さいと考えられるが、後者は理屈上のリスクが
-    /// 残っており、実機のE2E試験（`docs/開発環境書.md` 4.7）で問題が無いか確認すること）。
+    /// Central役の切断完了はCore Bluetoothから通知されるため、その完了まで操作抑止の対象とする。
+    /// Peripheral役の切断（`stopAdvertising`／`removeAllServices`）にはCore Bluetooth側に完了通知の
+    /// 仕組みがなく、確実に完了を待つ手段がないため、この操作抑止の対象外とする。
     private(set) var isDisconnecting = false
 
     // MARK: - Public: Bluetooth通信開始処理（PS設計書「Bluetooth通信開始処理（Central側）」, Central役）
