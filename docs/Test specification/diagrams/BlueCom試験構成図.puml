@@ -1,0 +1,40 @@
+@startuml BlueCom試験構成図
+
+' BlueCom設計検査仕様書兼成績書「2.1 試験構成」に掲載する構成図。
+' 機器構成のみを示す図とし、試験手順や通信処理の詳細は記載しない。
+' Central／Peripheralの役割はこの図では固定しない。
+
+left to right direction
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName IPAGothic
+skinparam defaultFontColor #1A3D7C
+skinparam defaultFontSize 18
+skinparam padding 15
+
+skinparam rectangle {
+    BackgroundColor #EAF3FB
+    BorderColor #1A3D7C
+    BorderThickness 2
+    RoundCorner 30
+    FontSize 18
+    FontColor #1A3D7C
+}
+
+skinparam arrow {
+    Color #1A3D7C
+    Thickness 1.5
+    FontColor #1A3D7C
+    FontSize 15
+}
+
+skinparam nodesep 100
+skinparam ranksep 120
+
+rectangle "iPad（1台）\n（BlueComアプリ）" as iPad
+rectangle "iPhone（1台）\n（BlueComアプリ）" as iPhone
+
+iPad -- iPhone : BLE通信
+
+@enduml
