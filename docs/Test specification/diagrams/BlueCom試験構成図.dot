@@ -1,0 +1,16 @@
+// BlueCom試験構成図
+//
+// BlueCom設計検査仕様書兼成績書「2.1 試験構成」に掲載する構成図の元データ。
+// 色・枠線・文字サイズ等のスタイルはここには書かない（diagram-style.jsonとrender.pyが管理する）。
+// 修正方法はこのフォルダのREADME.mdを参照すること。
+//
+// Central／Peripheralの役割はこの図では固定しない（どちらが先に操作するか等の
+// 試験手順には依存しない、機器構成のみを示す図とする）。
+graph BlueCom試験構成図 {
+    rankdir=LR;
+
+    iPad [label="iPad（1台）\n(BlueComアプリ)"];
+    iPhone [label="iPhone（1台）\n(BlueComアプリ)"];
+
+    iPad -- iPhone [label="BLE通信"];
+}

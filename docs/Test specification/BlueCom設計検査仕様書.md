@@ -59,9 +59,7 @@
 
 ### 2.1 試験構成
 
-```
-iPad（1台） ── BLE ── iPhone（1台）
-```
+![図2.1 BlueCom試験構成図](./diagrams/BlueCom試験構成図.svg)
 
 試験対象は、iPad・iPhoneの実機2台と、両者間のBluetooth Low Energy（BLE）通信である。
 
